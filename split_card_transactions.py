@@ -19,8 +19,8 @@ def split_card_transactions(entries, options_map, config_str=""):
         "account_based_splitters": [],
     }
 
-    errors = []
     if config_str.strip():
+        errors = []
         try:
             expr = ast.literal_eval(config_str)
             config.update(expr)
@@ -139,4 +139,4 @@ def split_card_transactions(entries, options_map, config_str=""):
         if new_txn is not None:
             new_entries.append(new_txn)
 
-    return entries + new_entries, errors
+    return entries + new_entries, []
