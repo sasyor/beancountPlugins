@@ -18,16 +18,20 @@ The first transaction is needed to accurately track the expenses, the second one
 
 ```
 plugin "plugins.split_card_transactions" "{
-    'booking_posting_narration': 'Some custom narration'
+    'booking_posting_narration': 'Some custom narration',
+    'account_based_splitters': [{
+            'account': 'Liabilities:Bank:CreditCard',
+            'transfer_account': 'Assets:Transfers:Bank:CreditCard' 
+        }]
 }"
 ```
 
-#### Example
+#### Example 1
 
 Input:
 
 ```
-2013-05-31 * "Paid by card"
+2013-05-31 * "Paid by card #1"
     Assets:Bank:Checking      -100 USD
         booking-transfer-account: Assets:Bank:DebitCard
         booking-date: 2013-06-03
@@ -37,11 +41,34 @@ Input:
 Result:
 
 ```
-2013-05-31 * "Paid by card"
-    Assets:Bank:DebitCard     -100 USD
-    Expense:Clothing           100 USD
+2013-05-31 * "Paid by card #1"
+    Assets:Bank:DebitCard                -100 USD
+    Expense:Clothing                      100 USD
 
 2013-06-03 * "Some custom narration"
-    Assets:Bank:Checking      -100 USD
-    Assets:Bank:DebitCard      100 USD
+    Assets:Bank:Checking                 -100 USD
+    Assets:Bank:DebitCard                 100 USD
+```
+
+#### Example 2
+
+Input:
+
+```
+2013-05-31 * "Paid by card #2"
+    Liabilities:Bank:CreditCard          -100 USD
+        booking-date: 2013-06-03
+    Expense:Clothing                      100 USD
+```
+
+Result:
+
+```
+2013-05-31 * "Paid by card #2"
+    Assets:Transfers:Bank:CreditCard     -100 USD
+    Expense:Clothing                      100 USD
+
+2013-06-03 * "Some custom narration"
+    Liabilities:Bank:CreditCard          -100 USD
+    Assets:Transfers:Bank:CreditCard      100 USD
 ```

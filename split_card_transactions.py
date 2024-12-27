@@ -4,22 +4,23 @@ import copy
 
 from beancount.core import data
 
-__plugins__ = ['split_card_transactions']
+__plugins__ = ["split_card_transactions"]
 
 SplitCardTransactionError = collections.namedtuple(
     "SplitCardTransactionError", "source message entry"
 )
 
 
-def split_card_transactions(entries, options_map, config_str=None):
+def split_card_transactions(entries, options_map, config_str=""):
     config = {
-        "booking_date": 'booking-date',
-        "booking_transfer_account": 'booking-transfer-account',
+        "booking_date": "booking-date",
+        "booking_transfer_account": "booking-transfer-account",
         "booking_posting_narration": "Card transaction booking",
+        "account_based_splitters": [],
     }
 
-    if config_str and config_str.strip():
-        errors = []
+    errors = []
+    if config_str.strip():
         try:
             expr = ast.literal_eval(config_str)
             config.update(expr)
@@ -33,32 +34,28 @@ def split_card_transactions(entries, options_map, config_str=None):
             )
             return entries, errors
 
-    meta_name_booking_date = config['booking_date']
-    meta_name_booking_transfer_account = config['booking_transfer_account']
-    booking_posting_narration = config['booking_posting_narration']
+    meta_name_booking_date = config["booking_date"]
+    meta_name_booking_transfer_account = config["booking_transfer_account"]
+    booking_posting_narration = config["booking_posting_narration"]
 
-    errors = []
     new_entries = []
 
-    for entry in entries:
-
-        if not isinstance(entry, data.Transaction):
-            continue
-
-        relevant_postings = list(filter(
-            filter_posting(meta_name_booking_date, meta_name_booking_transfer_account),
-            entry.postings))
-
-        if len(relevant_postings) != 1:
-            continue
-
-        original_posting_with_booking_date = relevant_postings[0]
+    def split_booking_txn(original_posting_with_booking_date, transfer_account_config):
         booking_date = original_posting_with_booking_date.meta[meta_name_booking_date]
-        booking_transfer_account = original_posting_with_booking_date.meta[meta_name_booking_transfer_account]
+        booking_transfer_account = None
+        if transfer_account_config["type"] == "account":
+            booking_transfer_account = transfer_account_config["data"]
+        elif transfer_account_config["type"] == "meta":
+            booking_transfer_account = original_posting_with_booking_date.meta[
+                transfer_account_config["data"]
+            ]
+        if booking_transfer_account is None:
+            return None
         booking_unit_number = original_posting_with_booking_date.units.number
         booking_currency_number = original_posting_with_booking_date.units.currency
         del original_posting_with_booking_date.meta[meta_name_booking_date]
-        del original_posting_with_booking_date.meta[meta_name_booking_transfer_account]
+        if transfer_account_config["type"] == "meta":
+            del original_posting_with_booking_date.meta[transfer_account_config["data"]]
 
         # booking entry: create
         booking_entry = copy.deepcopy(entry)
@@ -66,19 +63,80 @@ def split_card_transactions(entries, options_map, config_str=None):
             payee=None,
             narration=booking_posting_narration,
             date=booking_date,
-            postings=[original_posting_with_booking_date]
+            postings=[original_posting_with_booking_date],
         )
-        data.create_simple_posting(booking_entry, booking_transfer_account, -booking_unit_number,
-                                   booking_currency_number)
+        data.create_simple_posting(
+            booking_entry,
+            booking_transfer_account,
+            -booking_unit_number,
+            booking_currency_number,
+        )
 
         # existing entry: remove original posting with booking date
         entry.postings.remove(original_posting_with_booking_date)
-        data.create_simple_posting(entry, booking_transfer_account, booking_unit_number, booking_currency_number)
+        data.create_simple_posting(
+            entry,
+            booking_transfer_account,
+            booking_unit_number,
+            booking_currency_number,
+        )
 
-        new_entries.append(booking_entry)
+        return booking_entry
+
+    def split_txn_metadata_based_splitter(entry):
+        relevant_postings = list(
+            filter(
+                lambda posting: posting.meta
+                and meta_name_booking_date in posting.meta
+                and meta_name_booking_transfer_account in posting.meta,
+                entry.postings,
+            )
+        )
+
+        if len(relevant_postings) != 1:
+            return None
+
+        return split_booking_txn(
+            relevant_postings[0],
+            {"type": "meta", "data": meta_name_booking_transfer_account},
+        )
+
+    def split_txn_account_based_splitter(config, entry):
+        account_based_splitters = config["account_based_splitters"]
+        for account_based_splitter in account_based_splitters:
+            relevant_postings = list(
+                filter(
+                    lambda posting: posting.meta
+                    and meta_name_booking_date in posting.meta
+                    and account_based_splitter["account"] == posting.account,
+                    entry.postings,
+                )
+            )
+
+            if len(relevant_postings) != 1:
+                continue
+
+            return split_booking_txn(
+                relevant_postings[0],
+                {
+                    "type": "account",
+                    "data": account_based_splitter["transfer_account"],
+                },
+            )
+
+        return None
+
+    for entry in entries:
+
+        if not isinstance(entry, data.Transaction):
+            continue
+
+        new_txn = split_txn_metadata_based_splitter(entry)
+        if new_txn is not None:
+            new_entries.append(new_txn)
+
+        new_txn = split_txn_account_based_splitter(config, entry)
+        if new_txn is not None:
+            new_entries.append(new_txn)
 
     return entries + new_entries, errors
-
-
-def filter_posting(meta_name_booking_date, meta_name_booking_transfer_account):
-    return lambda posting: meta_name_booking_date in posting.meta and meta_name_booking_transfer_account in posting.meta
