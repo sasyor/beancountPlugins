@@ -1,0 +1,170 @@
+import unittest
+
+from beancount.parser import cmptest
+from beancount import loader
+from txn_splitter import txn_splitter
+
+
+class TestTxnSplitter(cmptest.TestCase):
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_retention(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+                random-1: "text-1"
+            Assets:Cash                100 USD
+                random-2: "text-2"
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        for entry in new_entries:
+            for posting in entry.postings:
+                if posting.account == "Assets:Bank:Checking":
+                    self.assertEqual(posting.meta.get("random-1"), "text-1", posting)
+                    self.assertIsNone(posting.meta.get("random-2"), posting)
+                if posting.account == "Assets:Cash":
+                    self.assertIsNone(posting.meta.get("random-1"), posting)
+                    self.assertEqual(posting.meta.get("random-2"), "text-2", posting)
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_removed(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        for entry in new_entries:
+            for posting in entry.postings:
+                self.assertIsNone(posting.meta.get("booking-date") if posting.meta is not None else None, posting)
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_metadata_transfer(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-transfer-account: Assets:Bank:DebitCard
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"metadata-name-transfer-account":"booking-transfer-account"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_transfer_removed(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-transfer-account: Assets:Bank:DebitCard
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"metadata-name-transfer-account":"booking-transfer-account"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        for entry in new_entries:
+            for posting in entry.postings:
+                self.assertIsNone(posting.meta.get("booking-transfer-account") if posting.meta is not None else None,
+                                  posting)
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer_literal_narration(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard",'
+                      '"narration":"Custom narration"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Custom narration"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()
