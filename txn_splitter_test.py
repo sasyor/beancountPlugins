@@ -207,6 +207,35 @@ class TestTxnSplitter(cmptest.TestCase):
             new_entries,
         )
 
+    @loader.load_doc(expect_errors=True)
+    def test_retain_payee(self, entries, _, options_map):
+        """
+        2013-05-31 * "The payee" "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard",'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "The payee" "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "The payee" "Paid by card"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

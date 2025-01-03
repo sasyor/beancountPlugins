@@ -53,49 +53,33 @@ class TxnSplitter:
         metadata_name_date = rule["metadata-name-date"]
         metadata_names_to_remove = [metadata_name_date]
 
+        relevant_postings_filters = [lambda posting: posting.meta and metadata_name_date in posting.meta]
         if "metadata-name-transfer-account" in rule:
             metadata_name_transfer_account = rule["metadata-name-transfer-account"]
-            relevant_postings = list(
-                filter(
-                    lambda posting: posting.meta
-                                    and metadata_name_date in posting.meta
-                                    and metadata_name_transfer_account in posting.meta,
-                    entry.postings,
-                )
-            )
-            if len(relevant_postings) != 1:
-                return None
-
-            transfer_account = relevant_postings[0].meta[
+            relevant_postings_filters.append(lambda posting: metadata_name_transfer_account in posting.meta)
+            transfer_account_get = lambda posting: posting.meta[
                 metadata_name_transfer_account
             ]
             metadata_names_to_remove.append(metadata_name_transfer_account)
         elif "transfer-account" in rule:
             if "account" in rule:
-                relevant_postings = list(
-                    filter(
-                        lambda posting: posting.meta
-                                        and metadata_name_date in posting.meta
-                                        and rule["account"] == posting.account,
-                        entry.postings,
-                    )
-                )
-            else:
-                relevant_postings = list(
-                    filter(
-                        lambda posting: posting.meta
-                                        and metadata_name_date in posting.meta,
-                        entry.postings,
-                    )
-                )
-            if len(relevant_postings) != 1:
-                return None
-
-            transfer_account = rule["transfer-account"]
+                relevant_postings_filters.append(lambda posting: posting.account == rule["account"])
+            transfer_account_get = lambda posting: rule["transfer-account"]
         else:
             return None
 
+        relevant_postings = list(
+            filter(
+                lambda posting: all(f(posting) for f in relevant_postings_filters),
+                entry.postings,
+            )
+        )
+        if len(relevant_postings) != 1:
+            return None
+
         relevant_posting = relevant_postings[0]
+        transfer_account = transfer_account_get(relevant_posting)
+
         date = self.__get_date(relevant_posting, metadata_name_date)
         narration = self.__get_narration(entry, rule)
         self.__modify_existing_txn(entry, relevant_posting, transfer_account, metadata_names_to_remove)
@@ -136,7 +120,6 @@ class TxnSplitter:
         # create new txn
         new_txn = copy.deepcopy(entry)
         new_txn = new_txn._replace(
-            payee=None,
             narration=narration,
             date=date,
             postings=[copy.deepcopy(relevant_posting)],
