@@ -52,6 +52,7 @@ class TxnSplitter:
     def __try_create_txn(self, rule, entry):
         metadata_name_date = rule["metadata-name-date"]
         metadata_names_to_remove = [metadata_name_date]
+
         if "metadata-name-transfer-account" in rule:
             metadata_name_transfer_account = rule["metadata-name-transfer-account"]
             relevant_postings = list(
@@ -70,13 +71,23 @@ class TxnSplitter:
             ]
             metadata_names_to_remove.append(metadata_name_transfer_account)
         elif "transfer-account" in rule:
-            relevant_postings = list(
-                filter(
-                    lambda posting: posting.meta
-                                    and metadata_name_date in posting.meta,
-                    entry.postings,
+            if "account" in rule:
+                relevant_postings = list(
+                    filter(
+                        lambda posting: posting.meta
+                                        and metadata_name_date in posting.meta
+                                        and rule["account"] == posting.account,
+                        entry.postings,
+                    )
                 )
-            )
+            else:
+                relevant_postings = list(
+                    filter(
+                        lambda posting: posting.meta
+                                        and metadata_name_date in posting.meta,
+                        entry.postings,
+                    )
+                )
             if len(relevant_postings) != 1:
                 return None
 

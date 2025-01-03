@@ -11,11 +11,12 @@ class TestTxnSplitter(cmptest.TestCase):
     def test_metadata_retention(self, entries, _, options_map):
         """
         2013-05-31 * "Paid by card"
+            random-1: "text-1"
             Assets:Bank:Checking      -100 USD
                 booking-date: 2013-06-03
-                random-1: "text-1"
-            Assets:Cash                100 USD
                 random-2: "text-2"
+            Assets:Cash                100 USD
+                random-3: "text-3"
         """
         config_str = ('{"rules":['
                       '{'
@@ -26,13 +27,14 @@ class TestTxnSplitter(cmptest.TestCase):
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         for entry in new_entries:
+            self.assertEqual(entry.meta.get("random-1"), "text-1", entry)
             for posting in entry.postings:
                 if posting.account == "Assets:Bank:Checking":
-                    self.assertEqual(posting.meta.get("random-1"), "text-1", posting)
-                    self.assertIsNone(posting.meta.get("random-2"), posting)
-                if posting.account == "Assets:Cash":
-                    self.assertIsNone(posting.meta.get("random-1"), posting)
                     self.assertEqual(posting.meta.get("random-2"), "text-2", posting)
+                    self.assertIsNone(posting.meta.get("random-3"), posting)
+                if posting.account == "Assets:Cash":
+                    self.assertIsNone(posting.meta.get("random-2"), posting)
+                    self.assertEqual(posting.meta.get("random-3"), "text-3", posting)
 
     @loader.load_doc(expect_errors=True)
     def test_metadata_date_and_literal_transfer(self, entries, _, options_map):
@@ -82,6 +84,46 @@ class TestTxnSplitter(cmptest.TestCase):
         for entry in new_entries:
             for posting in entry.postings:
                 self.assertIsNone(posting.meta.get("booking-date") if posting.meta is not None else None, posting)
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer_account_filter(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card 1"
+            Assets:Bank:Checking1     -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+
+        2013-06-12 * "Paid by card 2"
+            Assets:Bank:Checking2     -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                200 USD
+        """
+        config_str = ('{"rules":['
+                      '{'
+                      '"account":"Assets:Bank:Checking1",'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard"'
+                      '}'
+                      ']}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card 1"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Paid by card 1"
+            Assets:Bank:Checking1     -100 USD
+            Assets:Bank:DebitCard      100 USD
+
+        2013-06-12 * "Paid by card 2"
+            Assets:Bank:Checking2     -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                200 USD
+        """,
+            new_entries,
+        )
 
     @loader.load_doc(expect_errors=True)
     def test_metadata_date_and_metadata_transfer(self, entries, _, options_map):
