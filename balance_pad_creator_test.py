@@ -131,6 +131,92 @@ class TestBalancePadCreator(cmptest.TestCase):
         self.assertEqual(len(actual_entries), 1, actual_entries)
         self.assertEqual(actual_entries[0].meta.get("balance-time"), "14:48")
 
+    @loader.load_doc(expect_errors=True)
+    def test_pad_creation(self, entries, _, options_map):
+        """
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+        """
+        date = datetime.date(2013, 6, 1)
+        account = 'Assets:Telephone'
+        entries.append(data.Balance(
+            data.new_metadata(".", 1001, {"balance-time": "14:47"}), date, account,
+            A('80 USD"'), None, None
+        ))
+        config_str = ('{'
+                      '"account":"Assets:Telephone",'
+                      '"pad-account":"Expenses:Telephone:CallsAndMessages",'
+                      '"metadata-name-balance-unit":"balance",'
+                      '"metadata-name-balance-time":"balance-time"'
+                      '}')
+        new_entries, _ = balance_pad_creator(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-05-31 pad Assets:Telephone Expenses:Telephone:CallsAndMessages
+
+        2013-06-01 balance Assets:Telephone  80 USD
+           balance-time: "14:47"
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_pad_creation_and_no_creation(self, entries, _, options_map):
+        """
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-06-22 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+        """
+        date = datetime.date(2013, 6, 1)
+        account = 'Assets:Telephone'
+        entries.append(data.Balance(
+            data.new_metadata(".", 1001, {"balance-time": "14:47"}), date, account,
+            A('80 USD"'), None, None
+        ))
+        date = datetime.date(2013, 6, 28)
+        entries.append(data.Balance(
+            data.new_metadata(".", 1001, {"balance-time": "14:47"}), date, account,
+            A('180 USD"'), None, None
+        ))
+        config_str = ('{'
+                      '"account":"Assets:Telephone",'
+                      '"pad-account":"Expenses:Telephone:CallsAndMessages",'
+                      '"metadata-name-balance-unit":"balance",'
+                      '"metadata-name-balance-time":"balance-time"'
+                      '}')
+        new_entries, _ = balance_pad_creator(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-06-22 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-06-01 balance Assets:Telephone  80 USD
+           balance-time: "14:47"
+           
+        2013-06-28 balance Assets:Telephone  180 USD
+           balance-time: "14:47"
+
+        2013-05-31 pad Assets:Telephone Expenses:Telephone:CallsAndMessages
+        """,
+            new_entries,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
