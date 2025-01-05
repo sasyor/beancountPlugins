@@ -32,7 +32,7 @@ class TxnSplitter:
 
     def __try_create_txn(self, rule, txn):
         metadata_name_date = rule["metadata-name-date"]
-        metadata_names_to_remove = [metadata_name_date]
+        metadata_names_to_remove = {metadata_name_date}
 
         relevant_postings_filters = [lambda posting: posting.meta and metadata_name_date in posting.meta]
         if "metadata-name-transfer-account" in rule:
@@ -41,7 +41,7 @@ class TxnSplitter:
             transfer_account_get = lambda posting: posting.meta[
                 metadata_name_transfer_account
             ]
-            metadata_names_to_remove.append(metadata_name_transfer_account)
+            metadata_names_to_remove.add(metadata_name_transfer_account)
         elif "transfer-account" in rule:
             if "account" in rule:
                 relevant_postings_filters.append(lambda posting: posting.account == rule["account"])
@@ -65,11 +65,18 @@ class TxnSplitter:
             txn = txn._replace(date=self.__get_date(relevant_postings[0], metadata_name_date))
 
         for relevant_posting in relevant_postings:
+            extra_metadata_names_to_remove = {}
             transfer_account = transfer_account_get(relevant_posting)
+
             if not inverted_date_mode:
                 date = self.__get_date(relevant_posting, metadata_name_date)
-            narration = self.__get_narration(txn, rule)
-            self.__modify_existing_txn(txn, relevant_posting, transfer_account, metadata_names_to_remove)
+            (narration, metadata_name_to_remove) = self.__get_narration(txn, relevant_posting, rule)
+
+            if metadata_name_to_remove:
+                extra_metadata_names_to_remove = {metadata_name_to_remove}
+
+            self.__modify_existing_txn(txn, relevant_posting, transfer_account,
+                                       metadata_names_to_remove.union(extra_metadata_names_to_remove))
             new_txns.append(self.__create_new_txn(
                 txn,
                 relevant_posting,
@@ -86,11 +93,14 @@ class TxnSplitter:
         return relevant_posting.meta[metadata_name_date]
 
     @staticmethod
-    def __get_narration(entry, rule):
+    def __get_narration(entry, relevant_posting, rule):
+        metadata_name_narration = rule.get("metadata-name-narration")
+        if metadata_name_narration is not None and metadata_name_narration in relevant_posting.meta:
+            return relevant_posting.meta[metadata_name_narration], metadata_name_narration
         narration = rule.get("narration")
-        if narration is None:
-            narration = entry.narration
-        return narration
+        if narration is not None:
+            return narration, None
+        return entry.narration, None
 
     @staticmethod
     def __modify_existing_txn(txn, relevant_posting, transfer_account, metadata_names_to_remove):

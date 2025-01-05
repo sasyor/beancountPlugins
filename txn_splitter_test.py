@@ -1,7 +1,8 @@
 import unittest
 
-from beancount.parser import cmptest
 from beancount import loader
+from beancount.parser import cmptest
+
 from txn_splitter import txn_splitter
 
 
@@ -194,6 +195,56 @@ class TestTxnSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer_metadata_narration(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+                narration: "Custom narration"
+            Assets:Cash                100 USD
+        """
+        config_str = ('{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard",'
+                      '"metadata-name-narration":"narration"'
+                      '}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Custom narration"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_narration_removed(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+                narration: "Custom narration"
+            Assets:Cash                100 USD
+        """
+        config_str = ('{'
+                      '"metadata-name-date":"booking-date",'
+                      '"transfer-account":"Assets:Bank:DebitCard",'
+                      '"metadata-name-narration":"narration"'
+                      '}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        for entry in new_entries:
+            for posting in entry.postings:
+                self.assertIsNone(posting.meta.get("narration") if posting.meta is not None else None,
+                                  posting)
+
+    @loader.load_doc(expect_errors=True)
     def test_retain_payee(self, entries, _, options_map):
         """
         2013-05-31 * "The payee" "Paid by card"
@@ -244,6 +295,42 @@ class TestTxnSplitter(cmptest.TestCase):
             Assets:Receivables:Exams      60 USD
 
         2013-06-03 * "Paid for exam"
+            Assets:Receivables:Exams     -40 USD
+            Expenses:Exams                40 USD
+
+        2013-06-03 * "Paid for exam"
+            Assets:Receivables:Exams     -60 USD
+            Expenses:Exams                60 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_multiple_metadata_date_and_literal_transfer_and_metadata_narration(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid for exam"
+            Assets:Bank:Checking      -100 USD
+            Expenses:Exams             40 USD
+                exam-date: 2013-06-03
+                narration: "Custom narration"
+            Expenses:Exams             60 USD
+                exam-date: 2013-06-03
+        """
+        config_str = ('{'
+                      '"metadata-name-date":"exam-date",'
+                      '"transfer-account":"Assets:Receivables:Exams",'
+                      '"metadata-name-narration":"narration"'
+                      '}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid for exam"
+            Assets:Bank:Checking        -100 USD
+            Assets:Receivables:Exams      40 USD
+            Assets:Receivables:Exams      60 USD
+
+        2013-06-03 * "Custom narration"
             Assets:Receivables:Exams     -40 USD
             Expenses:Exams                40 USD
 
