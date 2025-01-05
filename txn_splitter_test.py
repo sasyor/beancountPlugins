@@ -220,6 +220,40 @@ class TestTxnSplitter(cmptest.TestCase):
             new_entries,
         )
 
+    @loader.load_doc(expect_errors=True)
+    def test_multiple_metadata_date_and_literal_transfer(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid for exam"
+            Assets:Bank:Checking      -100 USD
+            Expenses:Exams             40 USD
+                exam-date: 2013-06-03
+            Expenses:Exams             60 USD
+                exam-date: 2013-06-03
+        """
+        config_str = ('{'
+                      '"metadata-name-date":"exam-date",'
+                      '"transfer-account":"Assets:Receivables:Exams"'
+                      '}')
+        new_entries, _ = txn_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid for exam"
+            Assets:Bank:Checking        -100 USD
+            Assets:Receivables:Exams      40 USD
+            Assets:Receivables:Exams      60 USD
+
+        2013-06-03 * "Paid for exam"
+            Assets:Receivables:Exams     -40 USD
+            Expenses:Exams                40 USD
+
+        2013-06-03 * "Paid for exam"
+            Assets:Receivables:Exams     -60 USD
+            Expenses:Exams                60 USD
+        """,
+            new_entries,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

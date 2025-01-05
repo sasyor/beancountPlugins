@@ -25,8 +25,7 @@ class TxnSplitter:
             if not isinstance(entry, data.Transaction):
                 continue
 
-            new_txn = self.__try_create_txn(config, entry)
-            if new_txn is not None:
+            for new_txn in self.__try_create_txn(config, entry):
                 new_entries.append(new_txn)
 
         return entries + new_entries, []
@@ -48,7 +47,7 @@ class TxnSplitter:
                 relevant_postings_filters.append(lambda posting: posting.account == rule["account"])
             transfer_account_get = lambda posting: rule["transfer-account"]
         else:
-            return None
+            return []
 
         relevant_postings = list(
             filter(
@@ -56,22 +55,23 @@ class TxnSplitter:
                 entry.postings,
             )
         )
-        if len(relevant_postings) != 1:
-            return None
+        if len(relevant_postings) == 0:
+            return []
 
-        relevant_posting = relevant_postings[0]
-        transfer_account = transfer_account_get(relevant_posting)
-
-        date = self.__get_date(relevant_posting, metadata_name_date)
-        narration = self.__get_narration(entry, rule)
-        self.__modify_existing_txn(entry, relevant_posting, transfer_account, metadata_names_to_remove)
-        return self.__create_new_txn(
-            entry,
-            relevant_posting,
-            date,
-            narration,
-            transfer_account,
-        )
+        new_txns = []
+        for relevant_posting in relevant_postings:
+            transfer_account = transfer_account_get(relevant_posting)
+            date = self.__get_date(relevant_posting, metadata_name_date)
+            narration = self.__get_narration(entry, rule)
+            self.__modify_existing_txn(entry, relevant_posting, transfer_account, metadata_names_to_remove)
+            new_txns.append(self.__create_new_txn(
+                entry,
+                relevant_posting,
+                date,
+                narration,
+                transfer_account,
+            ))
+        return new_txns
 
     @staticmethod
     def __get_date(relevant_posting, metadata_name_date):
