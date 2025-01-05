@@ -18,12 +18,10 @@ class TestTxnSplitter(cmptest.TestCase):
             Assets:Cash                100 USD
                 random-3: "text-3"
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         for entry in new_entries:
@@ -44,12 +42,10 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(
@@ -73,12 +69,10 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         for entry in new_entries:
@@ -98,13 +92,11 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2014-06-16
             Assets:Cash                200 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"account":"Assets:Bank:Checking1",'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(
@@ -134,12 +126,10 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"metadata-name-transfer-account":"booking-transfer-account"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(
@@ -164,12 +154,10 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"metadata-name-transfer-account":"booking-transfer-account"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         for entry in new_entries:
@@ -185,13 +173,11 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard",'
                       '"narration":"Custom narration"'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(
@@ -215,12 +201,10 @@ class TestTxnSplitter(cmptest.TestCase):
                 booking-date: 2013-06-03
             Assets:Cash                100 USD
         """
-        config_str = ('{"rules":['
-                      '{'
+        config_str = ('{'
                       '"metadata-name-date":"booking-date",'
                       '"transfer-account":"Assets:Bank:DebitCard",'
-                      '}'
-                      ']}')
+                      '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(

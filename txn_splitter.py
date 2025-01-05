@@ -14,26 +14,9 @@ SplitCardTransactionError = collections.namedtuple(
 class TxnSplitter:
 
     def split(self, entries, options_map, config_str=""):
-        config = {
-            "rules": [],
-        }
-
-        if config_str.strip():
-            errors = []
-            try:
-                expr = ast.literal_eval(config_str)
-                config.update(expr)
-            except (SyntaxError, ValueError):
-                errors.append(
-                    SplitCardTransactionError(
-                        data.new_metadata(options_map["filename"], 0),
-                        f"Syntax error in config: {config_str}",
-                        None,
-                    )
-                )
-                return entries, errors
-
-        rules = config["rules"]
+        config = {}
+        expr = ast.literal_eval(config_str)
+        config.update(expr)
 
         new_entries = []
 
@@ -42,10 +25,9 @@ class TxnSplitter:
             if not isinstance(entry, data.Transaction):
                 continue
 
-            for rule in rules:
-                new_txn = self.__try_create_txn(rule, entry)
-                if new_txn is not None:
-                    new_entries.append(new_txn)
+            new_txn = self.__try_create_txn(config, entry)
+            if new_txn is not None:
+                new_entries.append(new_txn)
 
         return entries + new_entries, []
 
