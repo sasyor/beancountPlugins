@@ -19,18 +19,18 @@ class TxnSplitter:
         config.update(expr)
 
         new_entries = []
-
         for entry in entries:
 
             if not isinstance(entry, data.Transaction):
+                new_entries.append(entry)
                 continue
 
             for new_txn in self.__try_create_txn(config, entry):
                 new_entries.append(new_txn)
 
-        return entries + new_entries, []
+        return new_entries, []
 
-    def __try_create_txn(self, rule, entry):
+    def __try_create_txn(self, rule, txn):
         metadata_name_date = rule["metadata-name-date"]
         metadata_names_to_remove = [metadata_name_date]
 
@@ -47,30 +47,38 @@ class TxnSplitter:
                 relevant_postings_filters.append(lambda posting: posting.account == rule["account"])
             transfer_account_get = lambda posting: rule["transfer-account"]
         else:
-            return []
+            return [txn]
 
         relevant_postings = list(
             filter(
                 lambda posting: all(f(posting) for f in relevant_postings_filters),
-                entry.postings,
+                txn.postings,
             )
         )
         if len(relevant_postings) == 0:
-            return []
+            return [txn]
 
         new_txns = []
+        date = txn.date
+        inverted_date_mode = rule.get("inverted-date-mode")
+        if inverted_date_mode is True and len(relevant_postings) == 1:
+            txn = txn._replace(date=self.__get_date(relevant_postings[0], metadata_name_date))
+
         for relevant_posting in relevant_postings:
             transfer_account = transfer_account_get(relevant_posting)
-            date = self.__get_date(relevant_posting, metadata_name_date)
-            narration = self.__get_narration(entry, rule)
-            self.__modify_existing_txn(entry, relevant_posting, transfer_account, metadata_names_to_remove)
+            if not inverted_date_mode:
+                date = self.__get_date(relevant_posting, metadata_name_date)
+            narration = self.__get_narration(txn, rule)
+            self.__modify_existing_txn(txn, relevant_posting, transfer_account, metadata_names_to_remove)
             new_txns.append(self.__create_new_txn(
-                entry,
+                txn,
                 relevant_posting,
                 date,
                 narration,
                 transfer_account,
             ))
+
+        new_txns.append(txn)
         return new_txns
 
     @staticmethod
@@ -85,22 +93,22 @@ class TxnSplitter:
         return narration
 
     @staticmethod
-    def __modify_existing_txn(entry, relevant_posting, transfer_account, metadata_names_to_remove):
+    def __modify_existing_txn(txn, relevant_posting, transfer_account, metadata_names_to_remove):
         for metadata_name_to_remove in metadata_names_to_remove:
             del relevant_posting.meta[metadata_name_to_remove]
 
-        entry.postings.remove(relevant_posting)
+        txn.postings.remove(relevant_posting)
         data.create_simple_posting(
-            entry,
+            txn,
             transfer_account,
             relevant_posting.units.number,
             relevant_posting.units.currency,
         )
 
     @staticmethod
-    def __create_new_txn(entry, relevant_posting, date, narration, transfer_account):
+    def __create_new_txn(txn, relevant_posting, date, narration, transfer_account):
         # create new txn
-        new_txn = copy.deepcopy(entry)
+        new_txn = copy.deepcopy(txn)
         new_txn = new_txn._replace(
             narration=narration,
             date=date,
