@@ -6,7 +6,7 @@ from beancount.core import data
 from beancount.core.amount import A
 from beancount.parser import cmptest
 
-from balance_pad_creator import balance_pad_creator
+from balance_pad_creator import balance_pad_creator_testable as balance_pad_creator
 
 
 class TestBalancePadCreator(cmptest.TestCase):

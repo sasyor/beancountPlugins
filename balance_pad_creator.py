@@ -48,9 +48,9 @@ class BalancePadCreator:
         errors = []
         entries_for_padding = list(relevant_balances.values()) + relevant_txs + pads
         if skip_padding:
-            (entries_after_pad, errors) = pad(entries_for_padding, options_map)
-        else:
             entries_after_pad = entries_for_padding
+        else:
+            (entries_after_pad, errors) = pad(entries_for_padding, options_map)
         return non_relevant_entries + entries_after_pad, errors
 
     @staticmethod
