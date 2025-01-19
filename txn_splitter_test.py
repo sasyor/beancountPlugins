@@ -344,29 +344,29 @@ class TestTxnSplitter(cmptest.TestCase):
     @loader.load_doc(expect_errors=True)
     def test_metadata_date_and_literal_transfer_and_inverted_date_mode(self, entries, _, options_map):
         """
-        2013-05-31 * "Paid by card"
+        2013-06-03 * "Exams"
             Assets:Bank:Checking      -100 USD
-                booking-date: 2013-06-03
-            Expenses:Fee                 5 USD
-            Assets:Cash                 95 USD
+                exams-date: 2013-05-31
+            Expenses:Exams               30 USD
+            Expenses:Exams               70 USD
         """
         config_str = ('{'
-                      '"metadata-name-date":"booking-date",'
-                      '"transfer-account":"Assets:Bank:DebitCard",'
+                      '"metadata-name-date":"exams-date",'
+                      '"transfer-account":"Liabilities:Learning",'
                       '"inverted-date-mode":True'
                       '}')
         new_entries, _ = txn_splitter(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
-        2013-06-03 * "Paid by card"
-            Assets:Bank:DebitCard    -100 USD
-            Expenses:Fee                5 USD
-            Assets:Cash                95 USD
+        2013-05-31 * "Exams"
+            Liabilities:Learning       -100 USD
+            Expenses:Exams               30 USD
+            Expenses:Exams               70 USD
 
-        2013-05-31 * "Paid by card"
-            Assets:Bank:Checking     -100 USD
-            Assets:Bank:DebitCard     100 USD
+        2013-06-03 * "Exams"
+            Assets:Bank:Checking       -100 USD
+            Liabilities:Learning        100 USD
         """,
             new_entries,
         )
