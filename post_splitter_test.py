@@ -10,6 +10,27 @@ from post_splitter import post_splitter
 class TestPostSplitter(cmptest.TestCase):
 
     @loader.load_doc(expect_errors=True)
+    def test_no_split(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -800 HUF
+            Expenses:Exam                800 HUF
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -800 HUF
+            Expenses:Exam                800 HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_equal_split(self, entries, _, options_map):
         """
         2016-05-31 * "Exams"
