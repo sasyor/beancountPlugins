@@ -40,15 +40,13 @@ class PostSplitter:
                 new_entries.append(new_entry)
             elif (post_with_split_data.meta[self.metadata_name_type] == "proportional"
                   and self.metadata_name_split_ratio is not None):
-                new_entry = self.split_proportional(entry, post_with_split_data)
-                new_entries.append(new_entry)
-            elif (post_with_split_data.meta[self.metadata_name_type] == "cost"
-                  and self.metadata_name_unit is not None
-                  and self.metadata_name_exchange_rate is not None
-                  and self.metadata_name_split_ratio is not None
-                  and self.metadata_name_unit in post_with_split_data.meta
-                  and self.metadata_name_exchange_rate in post_with_split_data.meta):
-                new_entry = self.split_proportional_with_cost(entry, post_with_split_data)
+                if (self.metadata_name_unit is not None
+                        and self.metadata_name_exchange_rate is not None
+                        and self.metadata_name_unit in post_with_split_data.meta
+                        and self.metadata_name_exchange_rate in post_with_split_data.meta):
+                    new_entry = self.split_proportional_with_cost(entry, post_with_split_data)
+                else:
+                    new_entry = self.split_proportional(entry, post_with_split_data)
                 new_entries.append(new_entry)
             else:
                 new_entries.append(entry)

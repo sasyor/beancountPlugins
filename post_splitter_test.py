@@ -181,11 +181,11 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
-    def test_cost_split(self, entries, _, options_map):
+    def test_proportional_with_cost_split(self, entries, _, options_map):
         """
         2016-05-31 * "Game bundle"
             Assets:Bank                 -800 HUF
-                split-mode: "cost"
+                split-mode: "proportional"
                 price:                  4.00 USD
                 exchange-rate:           200 HUF
             Expenses:Games                 0 USD
@@ -219,11 +219,11 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
-    def test_cost_split_check_metadata(self, entries, _, options_map):
+    def test_proportional_with_cost_split_check_metadata(self, entries, _, options_map):
         """
         2016-05-31 * "Game bundle"
             Assets:Bank                 -800 HUF
-                split-mode: "cost"
+                split-mode: "proportional"
                 price:                  4.00 USD
                 exchange-rate:           200 HUF
             Expenses:Games                 0 USD
@@ -256,11 +256,11 @@ class TestPostSplitter(cmptest.TestCase):
                     self.assertEqual(posting.meta.get("msrp"), Amount(decimal.Decimal(30), "USD"))
 
     @loader.load_doc(expect_errors=True)
-    def test_cost_split_rounding(self, entries, _, options_map):
+    def test_proportional_with_cost_split_rounding(self, entries, _, options_map):
         """
         2016-05-31 * "Game bundle"
             Assets:Bank                 -961 HUF
-                split-mode: "cost"
+                split-mode: "proportional"
                 price:                  4.34 USD
                 exchange-rate:         221.5 HUF
             Expenses:Games                 0 USD
