@@ -202,6 +202,39 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_proportional_split_ignore_posts_without_metadata(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                     -4 USD
+                split-mode: "proportional"
+            Expenses:Exam                    0 USD
+                msrp:                       20 USD
+            Expenses:Exam                    0 USD
+            Expenses:Exam                    0 USD
+                msrp:                       60 USD
+            Expenses:Exam                    0 USD
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"metadata-name-split-ratio":"msrp"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -4 USD
+            Expenses:Exam             1.00 USD
+                msrp:                   20 USD
+            Expenses:Exam                    0 USD
+            Expenses:Exam             3.00 USD
+                msrp:                   60 USD
+            Expenses:Exam                    0 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_proportional_with_cost_split(self, entries, _, options_map):
         """
         2016-05-31 * "Game bundle"

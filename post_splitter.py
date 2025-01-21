@@ -32,6 +32,10 @@ class SplitterBase:
                 new_postings.append(posting)
                 continue
 
+            if not self.is_modify_needed(posting):
+                new_postings.append(posting)
+                continue
+
             new_unit = self.get_new_unit(posting)
             new_cost = self.new_cost
 
@@ -55,6 +59,9 @@ class SplitterBase:
             return number
 
         return round(number, decimals)
+
+    def is_modify_needed(self, posting):
+        return True
 
 
 class EqualSplitter(SplitterBase):
@@ -89,6 +96,9 @@ class ProportionSplitter(SplitterBase):
         number = self.round(number, posting.meta[self.metadata_name_split_ratio].currency)
         return data.Amount(number,
                            posting.meta[self.metadata_name_split_ratio].currency)
+
+    def is_modify_needed(self, posting):
+        return self.metadata_name_split_ratio in posting.meta
 
 
 class PostSplitter:
