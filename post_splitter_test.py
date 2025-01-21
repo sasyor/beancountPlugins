@@ -91,6 +91,96 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_proportional_split(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                     -4 USD
+                split-mode: "proportional"
+            Expenses:Exam                    0 USD
+                msrp:                       20 USD
+            Expenses:Exam                    0 USD
+                msrp:                       60 USD
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"metadata-name-split-ratio":"msrp"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -4 USD
+            Expenses:Exam             1.00 USD
+                msrp:                   20 USD
+            Expenses:Exam             3.00 USD
+                msrp:                   60 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_proportional_split_check_metadata(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                     -4 USD
+                split-mode: "proportional"
+                narration: "exams"
+            Expenses:Exam                    0 USD
+                msrp:                       20 USD
+                narration: "Exam A"
+            Expenses:Exam                    0 USD
+                msrp:                       60 USD
+                narration: "Exam B"
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"metadata-name-split-ratio":"msrp"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        for entry in new_entries:
+            for index, posting in enumerate(entry.postings):
+                self.assertIsNotNone(posting.meta, posting)
+                if index == 0:
+                    self.assertEqual(posting.meta.get("split-mode"), None)
+                    self.assertEqual(posting.meta.get("narration"), "exams")
+                elif index == 1:
+                    self.assertEqual(posting.meta.get("narration"), "Exam A")
+                elif index == 2:
+                    self.assertEqual(posting.meta.get("narration"), "Exam B")
+
+    @loader.load_doc(expect_errors=True)
+    def test_proportional_split_rounding(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                    -19.99 USD
+                split-mode: "proportional"
+            Expenses:Exam                       0 USD
+                msrp:                       20.99 USD
+            Expenses:Exam                       0 USD
+                msrp:                       60.99 USD
+        """
+        config_str = ('{'
+                      '"roundings":{'
+                      '    "USD":2'
+                      '  },'
+                      '"metadata-name-type":"split-mode",'
+                      '"metadata-name-split-ratio":"msrp"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                    -19.99 USD
+            Expenses:Exam                    5.12 USD
+            Expenses:Exam                   14.87 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_cost_split(self, entries, _, options_map):
         """
         2016-05-31 * "Game bundle"

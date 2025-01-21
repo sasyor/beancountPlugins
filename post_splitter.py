@@ -38,6 +38,10 @@ class PostSplitter:
             if post_with_split_data.meta[self.metadata_name_type] == "equal":
                 new_entry = self.split_equal(entry, post_with_split_data)
                 new_entries.append(new_entry)
+            elif (post_with_split_data.meta[self.metadata_name_type] == "proportional"
+                  and self.metadata_name_split_ratio is not None):
+                new_entry = self.split_proportional(entry, post_with_split_data)
+                new_entries.append(new_entry)
             elif (post_with_split_data.meta[self.metadata_name_type] == "cost"
                   and self.metadata_name_unit is not None
                   and self.metadata_name_exchange_rate is not None
@@ -65,6 +69,30 @@ class PostSplitter:
                 new_postings.append(posting)
                 continue
 
+            new_posting = data.Posting(posting.account, new_unit, None, None, None, posting.meta)
+            new_postings.append(new_posting)
+
+        return data.Transaction(entry.meta, entry.date, entry.flag, entry.payee, entry.narration, entry.tags,
+                                entry.links, new_postings)
+
+    def split_proportional(self, entry, post_with_split_data):
+        max_number = 0
+        for posting in entry.postings:
+            if self.metadata_name_split_ratio in posting.meta:
+                max_number += posting.meta[self.metadata_name_split_ratio].number
+
+        new_postings = []
+        for posting in entry.postings:
+            if posting == post_with_split_data:
+                del posting.meta[self.metadata_name_type]
+                new_postings.append(posting)
+                continue
+
+            number = (posting.meta[self.metadata_name_split_ratio].number / max_number
+                      * (-post_with_split_data.units.number))
+            number = self.round(number, posting.meta[self.metadata_name_split_ratio].currency)
+            new_unit = data.Amount(number,
+                                   posting.meta[self.metadata_name_split_ratio].currency)
             new_posting = data.Posting(posting.account, new_unit, None, None, None, posting.meta)
             new_postings.append(new_posting)
 
