@@ -61,17 +61,28 @@ class SplitterBase:
         return round(number, decimals)
 
     def is_modify_needed(self, posting):
-        return True
+        return posting.units.number == 0
 
 
 class EqualSplitter(SplitterBase):
     def __init__(self, metadata_name_type, roundings, entry, post_with_split_data):
         super().__init__(metadata_name_type, roundings, entry, post_with_split_data)
 
-        number = -self.post_with_split_data.units.number / (len(entry.postings) - 1)
+        divider = 0
+        number = self.post_with_split_data.units.number
+        for posting in entry.postings:
+            if posting == post_with_split_data:
+                continue
+
+            if posting.units.number != 0:
+                number += posting.units.number
+            else:
+                divider += 1
+
+        number = number / divider
         number = self.round(number, self.post_with_split_data.units.currency)
         self.new_unit = data.Amount(
-            number,
+            -number,
             post_with_split_data.units.currency)
 
     def get_new_unit(self, posting):

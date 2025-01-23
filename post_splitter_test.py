@@ -112,6 +112,32 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_equal_split_with_non_zero_posting(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -500 HUF
+                split-mode: "equal"
+            Expenses:Exam                  0 HUF
+            Expenses:Exam                100 HUF
+            Expenses:Exam                  0 HUF
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -500 HUF
+            Expenses:Exam                200 HUF
+            Expenses:Exam                100 HUF
+            Expenses:Exam                200 HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_proportional_split(self, entries, _, options_map):
         """
         2016-05-31 * "Exams"
