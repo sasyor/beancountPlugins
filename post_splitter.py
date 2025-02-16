@@ -17,7 +17,7 @@ class NoSplitter:
 
 class SplitterBase:
 
-    def __init__(self, metadata_name_type, roundings, entry, post_with_split_data):
+    def __init__(self, metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data):
         self.metadata_name_type = metadata_name_type
         self.roundings = roundings
         self.entry = entry
@@ -25,14 +25,11 @@ class SplitterBase:
         self.new_cost = None
 
     def split(self):
+        del self.post_with_split_data.meta[self.metadata_name_type]
+
         new_postings = []
         for posting in self.entry.postings:
-            if posting == self.post_with_split_data:
-                del posting.meta[self.metadata_name_type]
-                new_postings.append(posting)
-                continue
-
-            if not self.is_modify_needed(posting):
+            if posting == self.post_with_split_data or not self.is_modify_needed(posting):
                 new_postings.append(posting)
                 continue
 
@@ -61,12 +58,12 @@ class SplitterBase:
         return round(number, decimals)
 
     def is_modify_needed(self, posting):
-        return posting.units.number == 0
+        return posting.units.number == 0 and (posting.meta and "skip-split" not in posting.meta)
 
 
 class EqualSplitter(SplitterBase):
-    def __init__(self, metadata_name_type, roundings, entry, post_with_split_data):
-        super().__init__(metadata_name_type, roundings, entry, post_with_split_data)
+    def __init__(self, metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data):
+        super().__init__(metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data)
 
         divider = 0
         number = self.post_with_split_data.units.number
@@ -74,7 +71,7 @@ class EqualSplitter(SplitterBase):
             if posting == post_with_split_data:
                 continue
 
-            if posting.units.number != 0:
+            if not self.is_modify_needed(posting):
                 number += posting.units.number
             else:
                 divider += 1
@@ -90,9 +87,11 @@ class EqualSplitter(SplitterBase):
 
 
 class ProportionSplitter(SplitterBase):
-    def __init__(self, metadata_name_type, metadata_name_split_ratio, roundings, entry, post_with_split_data,
+    def __init__(self, metadata_name_type, metadata_name_skip_split, metadata_name_split_ratio, roundings, entry,
+                 post_with_split_data,
                  number_to_split, new_cost=None):
-        super().__init__(metadata_name_type, roundings, entry, post_with_split_data)
+        super().__init__(metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data)
+
         self.metadata_name_split_ratio = metadata_name_split_ratio
         self.number_to_split = number_to_split
         self.new_cost = new_cost
@@ -121,6 +120,7 @@ class PostSplitter:
 
         self.roundings = config.get("roundings")
         self.metadata_name_type = config["metadata-name-type"]
+        self.metadata_name_skip_split = config.get("metadata-name-skip-split")
         self.metadata_name_unit = config.get("metadata-name-unit")
         self.metadata_name_exchange_rate = config.get("metadata-name-exchange-rate")
         self.metadata_name_split_ratio = config.get("metadata-name-split-ratio")
@@ -150,7 +150,8 @@ class PostSplitter:
 
     def get_splitter(self, entry, post_with_split_data):
         if post_with_split_data.meta[self.metadata_name_type] == "equal":
-            return EqualSplitter(self.metadata_name_type, self.roundings, entry, post_with_split_data)
+            return EqualSplitter(self.metadata_name_type, self.metadata_name_skip_split, self.roundings, entry,
+                                 post_with_split_data)
         elif (post_with_split_data.meta[self.metadata_name_type] == "proportional"
               and self.metadata_name_split_ratio is not None):
             return self.get_proportion_splitter(entry, post_with_split_data)
@@ -166,16 +167,14 @@ class PostSplitter:
             exchange_rate = post_with_split_data.meta[self.metadata_name_exchange_rate]
             new_cost = data.Cost(exchange_rate.number, exchange_rate.currency, entry.date, None)
             del post_with_split_data.meta[self.metadata_name_exchange_rate]
-            return ProportionSplitter(self.metadata_name_type, self.metadata_name_split_ratio,
-                                      self.roundings, entry,
-                                      post_with_split_data,
-                                      number_to_split, new_cost)
+            return ProportionSplitter(self.metadata_name_type, self.metadata_name_skip_split,
+                                      self.metadata_name_split_ratio,
+                                      self.roundings, entry, post_with_split_data, number_to_split, new_cost)
         else:
             number_to_split = -post_with_split_data.units.number
-            return ProportionSplitter(self.metadata_name_type, self.metadata_name_split_ratio,
-                                      self.roundings, entry,
-                                      post_with_split_data,
-                                      number_to_split)
+            return ProportionSplitter(self.metadata_name_type, self.metadata_name_skip_split,
+                                      self.metadata_name_split_ratio,
+                                      self.roundings, entry, post_with_split_data, number_to_split)
 
 
 def post_splitter(entries, options_map, config_str=""):

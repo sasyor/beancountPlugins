@@ -138,6 +138,34 @@ class TestPostSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_equal_split_with_zero_posting_to_skip(self, entries, _, options_map):
+        """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -500 HUF
+                split-mode: "equal"
+            Expenses:Exam                  0 HUF
+            Expenses:Exam                  0 HUF
+                skip-split: ""
+            Expenses:Exam                  0 HUF
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"metadata-name-skip-split":"skip-split"'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * "Exams"
+            Assets:Bank                 -500 HUF
+            Expenses:Exam                250 HUF
+            Expenses:Exam                  0 HUF
+            Expenses:Exam                250 HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_proportional_split(self, entries, _, options_map):
         """
         2016-05-31 * "Exams"
