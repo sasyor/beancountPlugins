@@ -322,9 +322,11 @@ class PostSplitter:
 
         modified_new_entries = []
         for entry_modifier_func in entry_modifier_funcs:
+            modified_new_entries = []
             for entry in new_entries:
                 created_entries = entry_modifier_func(entry)
                 modified_new_entries += created_entries
+            new_entries = modified_new_entries
 
         return modified_new_entries, []
 
@@ -345,7 +347,7 @@ class PostSplitter:
         post_with_split_data = post_with_split_data[0]
         return self.__get_posting_level_splitter(entry, post_with_split_data).split(), None
 
-    def __get_entry_level_splitter(self: object) -> DiscountSplitter:
+    def __get_entry_level_splitter(self) -> DiscountSplitter:
         return DiscountSplitter(self.metadata_name_type, self.metadata_name_split_ratio, self.roundings)
 
     def __get_posting_level_splitter(self, entry, post_with_split_data):

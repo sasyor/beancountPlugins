@@ -497,15 +497,29 @@ class TestPostSplitter(cmptest.TestCase):
             Assets:Bank                  200 HUF
             Expenses:Bread               200 HUF
 
+        2016-05-25 * ""
+            split-mode: "discount"
+            discount-1:                   20 HUF
+            discount-2:                  100 HUF
+            Assets:Bank                  380 HUF
+            Expenses:Onion               100 HUF
+                discount-ids: "1"
+            Expenses:Bread               200 HUF
+                discount-ids: "2"
+            Expenses:Butter              200 HUF
+                discount-ids: "2"
+
         2016-05-31 * ""
             split-mode: "discount"
-            discount-1:                  100 HUF
-            Assets:Bank                  400 HUF
+            discount-1:                   20 HUF
+            discount-2:                  100 HUF
+            Assets:Bank                  380 HUF
             Expenses:Onion               100 HUF
+                discount-ids: "1"
             Expenses:Bread               200 HUF
-                discount-ids: "1"
+                discount-ids: "2"
             Expenses:Butter              200 HUF
-                discount-ids: "1"
+                discount-ids: "2"
         """
         config_str = ('{'
                       '"metadata-name-type":"split-mode",'
@@ -526,10 +540,23 @@ class TestPostSplitter(cmptest.TestCase):
             Assets:Bank                     200 HUF
             Expenses:Bread:Price            200 HUF
 
+        2016-05-25 * ""
+            discount-1:                      20 HUF
+            discount-2:                     100 HUF
+            Assets:Bank                     380 HUF
+            Expenses:Onion:Price            100 HUF
+            Expenses:Onion:Discount         -20 HUF
+            Expenses:Bread:Price            200 HUF
+            Expenses:Bread:Discount         -50 HUF
+            Expenses:Butter:Price           200 HUF
+            Expenses:Butter:Discount        -50 HUF
+
         2016-05-31 * ""
-            discount-1:                     100 HUF
-            Assets:Bank                     400 HUF
-            Expenses:Onion                  100 HUF
+            discount-1:                      20 HUF
+            discount-2:                     100 HUF
+            Assets:Bank                     380 HUF
+            Expenses:Onion:Price            100 HUF
+            Expenses:Onion:Discount         -20 HUF
             Expenses:Bread:Price            200 HUF
             Expenses:Bread:Discount         -50 HUF
             Expenses:Butter:Price           200 HUF
