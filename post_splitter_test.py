@@ -412,11 +412,11 @@ class TestPostSplitter(cmptest.TestCase):
             discount-1:                  300 HUF
             Assets:Bank                1,170 HUF
             Expenses:Onion               150 HUF
-            Expenses:Bread:Price         620 HUF
+            Expenses:Bread               620 HUF
                 discount-ids: "1"
-            Expenses:Butter:Price        400 HUF
+            Expenses:Butter              400 HUF
                 discount-ids: "1"
-            Expenses:Milk:Price          300 HUF
+            Expenses:Milk                300 HUF
                 discount-ids: "1"
         """
         config_str = ('{'
@@ -451,13 +451,13 @@ class TestPostSplitter(cmptest.TestCase):
             discount-1:                  110 HUF
             discount-2:                  300 HUF
             Assets:Bank                1,060 HUF
-            Expenses:Onion:Price         150 HUF
+            Expenses:Onion               150 HUF
                 discount-ids: "1"
-            Expenses:Bread:Price         620 HUF
+            Expenses:Bread               620 HUF
                 discount-ids: "1,2"
-            Expenses:Butter:Price        400 HUF
+            Expenses:Butter              400 HUF
                 discount-ids: "2"
-            Expenses:Milk:Price          300 HUF
+            Expenses:Milk                300 HUF
                 discount-ids: "2"
         """
         config_str = ('{'

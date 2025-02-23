@@ -193,11 +193,14 @@ class DiscountSplitter:
             new_entry = self.__single_split(new_entry, discount_id)
             discount_id += 1
 
+        new_entry = self.__replace_accounts(new_entry)
+
         return new_entry
 
     def __single_split(self, entry, discount_id):
         number_to_split = -entry.meta["discount-" + str(discount_id)].number
 
+        visited_accounts = set()
         new_postings = []
         for posting in entry.postings:
             if not "discount-ids" in posting.meta or str(discount_id) not in posting.meta["discount-ids"].split(","):
@@ -211,6 +214,7 @@ class DiscountSplitter:
 
             new_postings.append(self.__create_original_posting(discount_id, shared_meta, posting))
             new_postings.append(self.__create_discount_posting(discount_id, shared_meta, posting))
+            visited_accounts.add(posting.account)
 
         new_entry = data.Transaction(entry.meta, entry.date, entry.flag, entry.payee,
                                      entry.narration, entry.tags,
@@ -225,10 +229,9 @@ class DiscountSplitter:
 
     @staticmethod
     def __create_discount_posting(discount_id, shared_meta, posting):
-        new_account = ":".join(posting.account.split(':')[:-1] + ["Discount"])
         new_meta = deepcopy(shared_meta)
         new_meta["discount-ids"] = str(discount_id)
-        return data.Posting(new_account, posting.units, posting.cost, None, None, new_meta)
+        return data.Posting(posting.account, posting.units, posting.cost, None, None, new_meta)
 
     @staticmethod
     def __create_original_posting(discount_id, shared_meta, posting):
@@ -237,6 +240,29 @@ class DiscountSplitter:
             new_meta["discount-ids"] = ",".join(
                 filter(lambda v: v != str(discount_id), posting.meta["discount-ids"].split(",")))
         return data.Posting(posting.account, posting.units, posting.cost, None, None, new_meta)
+
+    @staticmethod
+    def __replace_accounts(entry):
+        new_postings = []
+
+        relevant_accounts = set()
+        for posting in entry.postings:
+            if "discount-ids" in posting.meta:
+                relevant_accounts.add(posting.account)
+
+        for posting in entry.postings:
+            if posting.account not in relevant_accounts:
+                new_postings.append(posting)
+                continue
+
+            new_account = ":".join(
+                posting.account.split(':') + (["Discount"] if "discount-ids" in posting.meta else ["Price"]))
+            new_postings.append(data.Posting(new_account, posting.units, posting.cost, None, None, posting.meta))
+
+        new_entry = data.Transaction(entry.meta, entry.date, entry.flag, entry.payee,
+                                     entry.narration, entry.tags,
+                                     entry.links, new_postings)
+        return new_entry
 
 
 class PostSplitter:
