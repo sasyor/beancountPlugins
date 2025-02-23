@@ -404,6 +404,89 @@ class TestPostSplitter(cmptest.TestCase):
             new_entries,
         )
 
+    @loader.load_doc(expect_errors=True)
+    def test_single_discount_split(self, entries, _, options_map):
+        """
+        2016-05-31 * ""
+            split-mode: "discount"
+            discount-1:                  300 HUF
+            Assets:Bank                1,170 HUF
+            Expenses:Onion               150 HUF
+            Expenses:Bread:Price         620 HUF
+                discount-ids: "1"
+            Expenses:Butter:Price        400 HUF
+                discount-ids: "1"
+            Expenses:Milk:Price          300 HUF
+                discount-ids: "1"
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"roundings":{'
+                      '    "HUF":2'
+                      '  },'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * ""
+            discount-1:                     300 HUF
+            Assets:Bank                   1,170 HUF
+            Expenses:Onion                  150 HUF
+            Expenses:Bread:Price            620 HUF
+            Expenses:Bread:Discount     -140.91 HUF
+            Expenses:Butter:Price           400 HUF
+            Expenses:Butter:Discount     -90.91 HUF
+            Expenses:Milk:Price             300 HUF
+            Expenses:Milk:Discount       -68.18 HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_multiple_discount_split(self, entries, _, options_map):
+        """
+        2016-05-31 * ""
+            split-mode: "discount"
+            discount-1:                  110 HUF
+            discount-2:                  300 HUF
+            Assets:Bank                1,060 HUF
+            Expenses:Onion:Price         150 HUF
+                discount-ids: "1"
+            Expenses:Bread:Price         620 HUF
+                discount-ids: "1,2"
+            Expenses:Butter:Price        400 HUF
+                discount-ids: "2"
+            Expenses:Milk:Price          300 HUF
+                discount-ids: "2"
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"roundings":{'
+                      '    "HUF":2'
+                      '  },'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2016-05-31 * ""
+            discount-1:                     110 HUF
+            discount-2:                     300 HUF
+            Assets:Bank                   1,060 HUF
+            Expenses:Onion:Price            150 HUF
+            Expenses:Onion:Discount      -21.43 HUF
+            Expenses:Bread:Price            620 HUF
+            Expenses:Bread:Discount      -88.57 HUF
+            Expenses:Bread:Discount     -140.91 HUF
+            Expenses:Butter:Price           400 HUF
+            Expenses:Butter:Discount     -90.91 HUF
+            Expenses:Milk:Price             300 HUF
+            Expenses:Milk:Discount       -68.18 HUF
+        """,
+            new_entries,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

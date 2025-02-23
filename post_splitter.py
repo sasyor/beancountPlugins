@@ -3,8 +3,43 @@ import ast
 __plugins__ = ["post_splitter"]
 
 from abc import abstractmethod
+from copy import deepcopy
 
 from beancount.core import data
+
+
+class SplitDataBase:
+    def __init__(self, metadata_name_type):
+        self.metadata_name_type = metadata_name_type
+
+    def is_modify_needed(self, posting):
+        return True
+
+    @abstractmethod
+    def before_split(self):
+        pass
+
+
+class EntryWithSplitData(SplitDataBase):
+    def __init__(self, entry, metadata_name_type):
+        super().__init__(metadata_name_type)
+        self.entry = entry
+
+    def before_split(self):
+        if self.metadata_name_type is not None:
+            del self.entry.meta[self.metadata_name_type]
+
+
+class PostWithSplitData(SplitDataBase):
+    def __init__(self, metadata_name_type, post_with_split_data):
+        super().__init__(metadata_name_type)
+        self.post_with_split_data = post_with_split_data
+
+    def is_modify_needed(self, posting):
+        return posting != self.post_with_split_data
+
+    def before_split(self):
+        del self.post_with_split_data.meta[self.metadata_name_type]
 
 
 class NoSplitter:
@@ -17,19 +52,18 @@ class NoSplitter:
 
 class SplitterBase:
 
-    def __init__(self, metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data):
-        self.metadata_name_type = metadata_name_type
+    def __init__(self, metadata_name_skip_split, roundings, entry, split_data):
         self.roundings = roundings
         self.entry = entry
-        self.post_with_split_data = post_with_split_data
+        self.split_data = split_data
         self.new_cost = None
 
     def split(self):
-        del self.post_with_split_data.meta[self.metadata_name_type]
+        self.split_data.before_split()
 
         new_postings = []
         for posting in self.entry.postings:
-            if posting == self.post_with_split_data or not self.is_modify_needed(posting):
+            if not self.split_data.is_modify_needed(posting) or not self.is_modify_needed(posting):
                 new_postings.append(posting)
                 continue
 
@@ -63,10 +97,11 @@ class SplitterBase:
 
 class EqualSplitter(SplitterBase):
     def __init__(self, metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data):
-        super().__init__(metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data)
+        split_data = PostWithSplitData(metadata_name_type, post_with_split_data)
+        super().__init__(metadata_name_skip_split, roundings, entry, split_data)
 
         divider = 0
-        number = self.post_with_split_data.units.number
+        number = post_with_split_data.units.number
         for posting in entry.postings:
             if posting == post_with_split_data:
                 continue
@@ -77,7 +112,7 @@ class EqualSplitter(SplitterBase):
                 divider += 1
 
         number = number / divider
-        number = self.round(number, self.post_with_split_data.units.currency)
+        number = self.round(number, post_with_split_data.units.currency)
         self.new_unit = data.Amount(
             -number,
             post_with_split_data.units.currency)
@@ -86,29 +121,122 @@ class EqualSplitter(SplitterBase):
         return self.new_unit
 
 
-class ProportionSplitter(SplitterBase):
-    def __init__(self, metadata_name_type, metadata_name_skip_split, metadata_name_split_ratio, roundings, entry,
-                 post_with_split_data,
-                 number_to_split, new_cost=None):
-        super().__init__(metadata_name_type, metadata_name_skip_split, roundings, entry, post_with_split_data)
+class ProportionSplitDataBase:
+    def get_number(self, posting):
+        return posting.units.number
 
+    def get_currency(self, posting):
+        return posting.units.currency
+
+    def is_modify_needed(self, posting):
+        return True
+
+
+class MetadataProportionSplitData(ProportionSplitDataBase):
+    def __init__(self, metadata_name_split_ratio):
         self.metadata_name_split_ratio = metadata_name_split_ratio
+
+    def get_number(self, posting):
+        return posting.meta[self.metadata_name_split_ratio].number
+
+    def get_currency(self, posting):
+        return posting.meta[self.metadata_name_split_ratio].currency
+
+    def is_modify_needed(self, posting):
+        return self.metadata_name_split_ratio in posting.meta
+
+
+class DiscountProportionSplitData(ProportionSplitDataBase):
+    def __init__(self, discount_id):
+        self.discount_id = discount_id
+
+    def is_modify_needed(self, posting):
+        return "discount-ids" in posting.meta and str(self.discount_id) in posting.meta["discount-ids"].split(",")
+
+
+class ProportionSplitter(SplitterBase):
+    def __init__(self, metadata_name_skip_split, proportion_split_data, roundings, entry,
+                 split_data,
+                 number_to_split, new_cost=None):
+        super().__init__(metadata_name_skip_split, roundings, entry, split_data)
+
+        self.proportion_split_data = proportion_split_data
         self.number_to_split = number_to_split
         self.new_cost = new_cost
 
         self.max_number = 0
         for posting in entry.postings:
-            if self.metadata_name_split_ratio in posting.meta:
-                self.max_number += posting.meta[self.metadata_name_split_ratio].number
+            if self.proportion_split_data.is_modify_needed(posting):
+                self.max_number += self.proportion_split_data.get_number(posting)
 
     def get_new_unit(self, posting):
-        number = posting.meta[self.metadata_name_split_ratio].number / self.max_number * self.number_to_split
-        number = self.round(number, posting.meta[self.metadata_name_split_ratio].currency)
+        number = self.proportion_split_data.get_number(posting) / self.max_number * self.number_to_split
+        number = self.round(number, self.proportion_split_data.get_currency(posting))
         return data.Amount(number,
-                           posting.meta[self.metadata_name_split_ratio].currency)
+                           self.proportion_split_data.get_currency(posting))
 
     def is_modify_needed(self, posting):
-        return self.metadata_name_split_ratio in posting.meta
+        return self.proportion_split_data.is_modify_needed(posting)
+
+
+class DiscountSplitter:
+    def __init__(self, metadata_name_type, metadata_name_skip_split, roundings):
+        self.metadata_name_type = metadata_name_type
+        self.metadata_name_skip_split = metadata_name_skip_split
+        self.roundings = roundings
+
+    def split(self, entry):
+        new_entry = entry
+
+        discount_id = 1
+        while "discount-" + str(discount_id) in entry.meta:
+            new_entry = self.__single_split(new_entry, discount_id)
+            discount_id += 1
+
+        return new_entry
+
+    def __single_split(self, entry, discount_id):
+        number_to_split = -entry.meta["discount-" + str(discount_id)].number
+
+        new_postings = []
+        for posting in entry.postings:
+            if not "discount-ids" in posting.meta or str(discount_id) not in posting.meta["discount-ids"].split(","):
+                new_postings.append(posting)
+                continue
+
+            shared_meta = {}
+            for key, value in posting.meta.items():
+                if key != "discount-ids":
+                    shared_meta[key] = value
+
+            new_postings.append(self.__create_original_posting(discount_id, shared_meta, posting))
+            new_postings.append(self.__create_discount_posting(discount_id, shared_meta, posting))
+
+        new_entry = data.Transaction(entry.meta, entry.date, entry.flag, entry.payee,
+                                     entry.narration, entry.tags,
+                                     entry.links, new_postings)
+
+        split_data = EntryWithSplitData(new_entry, self.metadata_name_type if discount_id == 1 else None)
+        proportion_split_data = DiscountProportionSplitData(discount_id)
+        new_entry = ProportionSplitter(self.metadata_name_skip_split, proportion_split_data,
+                                       self.roundings, new_entry, split_data, number_to_split).split()
+
+        return new_entry
+
+    @staticmethod
+    def __create_discount_posting(discount_id, shared_meta, posting):
+        new_account = ":".join(posting.account.split(':')[:-1] + ["Discount"])
+        new_meta = deepcopy(shared_meta)
+        new_meta["discount-ids"] = str(discount_id)
+        return data.Posting(new_account, posting.units, posting.cost, None, None, new_meta)
+
+    @staticmethod
+    def __create_original_posting(discount_id, shared_meta, posting):
+        new_meta = deepcopy(shared_meta)
+        if "," in posting.meta["discount-ids"]:
+            new_meta["discount-ids"] = ",".join(
+                filter(lambda v: v != str(discount_id), posting.meta["discount-ids"].split(",")))
+        return data.Posting(posting.account, posting.units, posting.cost, None, None, new_meta)
 
 
 class PostSplitter:
@@ -128,37 +256,44 @@ class PostSplitter:
     def split(self, entries):
         new_entries = []
         for entry in entries:
-            if not isinstance(entry, data.Transaction):
-                new_entries.append(entry)
-                continue
-
-            post_with_split_data = list(filter(lambda
-                                                   posting: posting.meta
-                                                            and self.metadata_name_type in posting.meta,
-                                               entry.postings))
-            if len(post_with_split_data) != 1:
-                new_entries.append(entry)
-                continue
-
-            post_with_split_data = post_with_split_data[0]
-
-            new_entry = self.get_splitter(entry, post_with_split_data).split()
-
+            new_entry = self.__split_single_entry(entry)
             new_entries.append(new_entry)
 
         return new_entries, []
 
-    def get_splitter(self, entry, post_with_split_data):
+    def __split_single_entry(self, entry):
+        if not isinstance(entry, data.Transaction):
+            return entry
+
+        if entry.meta and self.metadata_name_type in entry.meta:
+            return self.__get_entry_level_splitter().split(entry)
+
+        post_with_split_data = list(filter(lambda
+                                               posting: posting.meta
+                                                        and self.metadata_name_type in posting.meta,
+                                           entry.postings))
+        if len(post_with_split_data) != 1:
+            return entry
+
+        post_with_split_data = post_with_split_data[0]
+        return self.__get_posting_level_splitter(entry, post_with_split_data).split()
+
+    def __get_entry_level_splitter(self):
+        return DiscountSplitter(self.metadata_name_type, self.metadata_name_split_ratio, self.roundings)
+
+    def __get_posting_level_splitter(self, entry, post_with_split_data):
         if post_with_split_data.meta[self.metadata_name_type] == "equal":
             return EqualSplitter(self.metadata_name_type, self.metadata_name_skip_split, self.roundings, entry,
                                  post_with_split_data)
         elif (post_with_split_data.meta[self.metadata_name_type] == "proportional"
               and self.metadata_name_split_ratio is not None):
-            return self.get_proportion_splitter(entry, post_with_split_data)
+            return self.__get_proportion_splitter(entry, post_with_split_data)
         else:
             return NoSplitter(entry)
 
-    def get_proportion_splitter(self, entry, post_with_split_data):
+    def __get_proportion_splitter(self, entry, post_with_split_data):
+        split_data = PostWithSplitData(self.metadata_name_type, post_with_split_data)
+        proportion_split_data = MetadataProportionSplitData(self.metadata_name_split_ratio)
         if (self.metadata_name_unit is not None
                 and self.metadata_name_exchange_rate is not None
                 and self.metadata_name_unit in post_with_split_data.meta
@@ -167,14 +302,14 @@ class PostSplitter:
             exchange_rate = post_with_split_data.meta[self.metadata_name_exchange_rate]
             new_cost = data.Cost(exchange_rate.number, exchange_rate.currency, entry.date, None)
             del post_with_split_data.meta[self.metadata_name_exchange_rate]
-            return ProportionSplitter(self.metadata_name_type, self.metadata_name_skip_split,
-                                      self.metadata_name_split_ratio,
-                                      self.roundings, entry, post_with_split_data, number_to_split, new_cost)
+            return ProportionSplitter(self.metadata_name_skip_split,
+                                      proportion_split_data,
+                                      self.roundings, entry, split_data, number_to_split, new_cost)
         else:
             number_to_split = -post_with_split_data.units.number
-            return ProportionSplitter(self.metadata_name_type, self.metadata_name_skip_split,
-                                      self.metadata_name_split_ratio,
-                                      self.roundings, entry, post_with_split_data, number_to_split)
+            return ProportionSplitter(self.metadata_name_skip_split,
+                                      proportion_split_data,
+                                      self.roundings, entry, split_data, number_to_split)
 
 
 def post_splitter(entries, options_map, config_str=""):
