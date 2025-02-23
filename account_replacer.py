@@ -29,22 +29,24 @@ class AccountReplacer:
 
         return new_entries, []
 
-    def __replace_entry(self, entry, replace_rule):
-
+    @staticmethod
+    def __replace_entry(entry, replace_rule):
+        replace_from = replace_rule["replace-from"]
+        replace_to = replace_rule["replace-to"].replace("$", "\\")
         if isinstance(entry, data.Transaction):
             new_postings = []
             for posting in entry.postings:
                 account = posting.account
-                new_account = re.sub(replace_rule["replace-from"], replace_rule["replace-to"], account)
+                new_account = re.sub(replace_from, replace_to, account)
                 new_postings.append(posting._replace(account=new_account))
 
             return entry._replace(postings=new_postings)
         elif isinstance(entry, data.Open) or isinstance(entry, data.Close) or isinstance(entry, data.Balance):
-            new_account = re.sub(replace_rule["replace-from"], replace_rule["replace-to"], entry.account)
+            new_account = re.sub(replace_from, replace_to, entry.account)
             return entry._replace(account=new_account)
         elif isinstance(entry, data.Pad):
-            new_account = re.sub(replace_rule["replace-from"], replace_rule["replace-to"], entry.account)
-            new_source_account = re.sub(replace_rule["replace-from"], replace_rule["replace-to"], entry.source_account)
+            new_account = re.sub(replace_from, replace_to, entry.account)
+            new_source_account = re.sub(replace_from, replace_to, entry.source_account)
             return entry._replace(account=new_account, source_account=new_source_account)
 
         return entry

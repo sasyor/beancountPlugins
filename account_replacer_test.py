@@ -208,6 +208,36 @@ class TestAccountReplacer(cmptest.TestCase):
             new_entries,
         )
 
+    @loader.load_doc(expect_errors=True)
+    def test_start_and_end_replace_by_config(self, entries, _, options_map):
+        """
+        2010-08-31 open Expenses:Groceries:Vegetables
+
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking                   -100 USD
+            Expenses:Groceries:Vegetables           100 USD
+        """
+        config_str = ('{'
+                      '"replace-rules":['
+                      '{'
+                      '"replace-from":"Expenses:(Groceries.*)",'
+                      '"replace-to":"Expenses:Recurring:$1:Price"'
+                      '},'
+                      '],'
+                      '}')
+        new_entries, _ = account_replacer(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2010-08-31 open Expenses:Recurring:Groceries:Vegetables:Price
+
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking                             -100 USD
+            Expenses:Recurring:Groceries:Vegetables:Price     100 USD
+        """,
+            new_entries,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
