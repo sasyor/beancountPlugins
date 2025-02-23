@@ -70,7 +70,7 @@ class SplitterBase:
             new_unit = self.get_new_unit(posting)
             new_cost = self.new_cost
 
-            new_posting = data.Posting(posting.account, new_unit, new_cost, None, None, posting.meta)
+            new_posting = data.Posting(posting.account, new_unit, new_cost, posting.price, posting.flag, posting.meta)
             new_postings.append(new_posting)
 
         return data.Transaction(self.entry.meta, self.entry.date, self.entry.flag, self.entry.payee,
@@ -193,9 +193,9 @@ class DiscountSplitter:
             new_entry = self.__single_split(new_entry, discount_id)
             discount_id += 1
 
-        new_entry = self.__replace_accounts(new_entry)
+        new_entry, entry_modifier_func = self.__replace_accounts(new_entry)
 
-        return new_entry
+        return new_entry, entry_modifier_func
 
     def __single_split(self, entry, discount_id):
         number_to_split = -entry.meta["discount-" + str(discount_id)].number
@@ -231,7 +231,7 @@ class DiscountSplitter:
     def __create_discount_posting(discount_id, shared_meta, posting):
         new_meta = deepcopy(shared_meta)
         new_meta["discount-ids"] = str(discount_id)
-        return data.Posting(posting.account, posting.units, posting.cost, None, None, new_meta)
+        return data.Posting(posting.account, posting.units, posting.cost, posting.price, posting.flag, new_meta)
 
     @staticmethod
     def __create_original_posting(discount_id, shared_meta, posting):
@@ -239,10 +239,9 @@ class DiscountSplitter:
         if "," in posting.meta["discount-ids"]:
             new_meta["discount-ids"] = ",".join(
                 filter(lambda v: v != str(discount_id), posting.meta["discount-ids"].split(",")))
-        return data.Posting(posting.account, posting.units, posting.cost, None, None, new_meta)
+        return data.Posting(posting.account, posting.units, posting.cost, posting.price, posting.flag, new_meta)
 
-    @staticmethod
-    def __replace_accounts(entry):
+    def __replace_accounts(self, entry):
         new_postings = []
 
         relevant_accounts = set()
@@ -255,14 +254,44 @@ class DiscountSplitter:
                 new_postings.append(posting)
                 continue
 
-            new_account = ":".join(
-                posting.account.split(':') + (["Discount"] if "discount-ids" in posting.meta else ["Price"]))
-            new_postings.append(data.Posting(new_account, posting.units, posting.cost, None, None, posting.meta))
+            new_account = posting.account + (":Discount" if "discount-ids" in posting.meta else ":Price")
+            new_postings.append(
+                data.Posting(new_account, posting.units, posting.cost, posting.price, posting.flag, posting.meta))
 
         new_entry = data.Transaction(entry.meta, entry.date, entry.flag, entry.payee,
                                      entry.narration, entry.tags,
                                      entry.links, new_postings)
-        return new_entry
+
+        entry_modifier_func = None
+        if len(relevant_accounts) > 0:
+            entry_modifier_func = lambda e: self.__entry_account_modifier(e, relevant_accounts)
+
+        return new_entry, entry_modifier_func
+
+    @staticmethod
+    def __entry_account_modifier(entry, relevant_accounts):
+        if isinstance(entry, data.Transaction):
+            new_postings = []
+            for posting in entry.postings:
+                if posting.account not in relevant_accounts:
+                    new_postings.append(posting)
+                    continue
+
+                new_postings.append(
+                    data.Posting(posting.account + ":Price", posting.units, posting.cost, posting.price, posting.flag,
+                                 posting.meta))
+
+            return [data.Transaction(entry.meta, entry.date, entry.flag, entry.payee, entry.narration, entry.tags,
+                                     entry.links, new_postings)]
+
+        if not isinstance(entry, data.Open) or entry.account not in relevant_accounts:
+            return [entry]
+
+        new_open_for_price = data.Open(entry.meta, entry.date, entry.account + ":Price", entry.currencies,
+                                       entry.booking)
+        new_open_for_discount = data.Open(entry.meta, entry.date, entry.account + ":Discount", entry.currencies,
+                                          entry.booking)
+        return [new_open_for_price, new_open_for_discount]
 
 
 class PostSplitter:
@@ -281,30 +310,42 @@ class PostSplitter:
 
     def split(self, entries):
         new_entries = []
+        entry_modifier_funcs = []
         for entry in entries:
-            new_entry = self.__split_single_entry(entry)
+            new_entry, entry_modifier_func = self.__split_single_entry(entry)
             new_entries.append(new_entry)
+            if entry_modifier_func is not None:
+                entry_modifier_funcs.append(entry_modifier_func)
 
-        return new_entries, []
+        if len(entry_modifier_funcs) == 0:
+            return new_entries, []
+
+        modified_new_entries = []
+        for entry_modifier_func in entry_modifier_funcs:
+            for entry in new_entries:
+                created_entries = entry_modifier_func(entry)
+                modified_new_entries += created_entries
+
+        return modified_new_entries, []
 
     def __split_single_entry(self, entry):
-        if not isinstance(entry, data.Transaction):
-            return entry
-
         if entry.meta and self.metadata_name_type in entry.meta:
             return self.__get_entry_level_splitter().split(entry)
+
+        if not isinstance(entry, data.Transaction):
+            return entry, None
 
         post_with_split_data = list(filter(lambda
                                                posting: posting.meta
                                                         and self.metadata_name_type in posting.meta,
                                            entry.postings))
         if len(post_with_split_data) != 1:
-            return entry
+            return entry, None
 
         post_with_split_data = post_with_split_data[0]
-        return self.__get_posting_level_splitter(entry, post_with_split_data).split()
+        return self.__get_posting_level_splitter(entry, post_with_split_data).split(), None
 
-    def __get_entry_level_splitter(self):
+    def __get_entry_level_splitter(self: object) -> DiscountSplitter:
         return DiscountSplitter(self.metadata_name_type, self.metadata_name_split_ratio, self.roundings)
 
     def __get_posting_level_splitter(self, entry, post_with_split_data):

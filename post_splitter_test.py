@@ -487,6 +487,57 @@ class TestPostSplitter(cmptest.TestCase):
             new_entries,
         )
 
+    @loader.load_doc(expect_errors=True)
+    def test_single_discount_split_adapt_accounts(self, entries, _, options_map):
+        """
+        2010-08-31 open Expenses:Bread
+        2010-08-31 open Expenses:Butter
+
+        2016-05-20 * ""
+            Assets:Bank                  200 HUF
+            Expenses:Bread               200 HUF
+
+        2016-05-31 * ""
+            split-mode: "discount"
+            discount-1:                  100 HUF
+            Assets:Bank                  400 HUF
+            Expenses:Onion               100 HUF
+            Expenses:Bread               200 HUF
+                discount-ids: "1"
+            Expenses:Butter              200 HUF
+                discount-ids: "1"
+        """
+        config_str = ('{'
+                      '"metadata-name-type":"split-mode",'
+                      '"roundings":{'
+                      '    "HUF":0'
+                      '}'
+                      '}')
+        new_entries, _ = post_splitter(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2010-08-31 open Expenses:Bread:Price
+        2010-08-31 open Expenses:Bread:Discount
+        2010-08-31 open Expenses:Butter:Price
+        2010-08-31 open Expenses:Butter:Discount
+        
+        2016-05-20 * ""
+            Assets:Bank                     200 HUF
+            Expenses:Bread:Price            200 HUF
+
+        2016-05-31 * ""
+            discount-1:                     100 HUF
+            Assets:Bank                     400 HUF
+            Expenses:Onion                  100 HUF
+            Expenses:Bread:Price            200 HUF
+            Expenses:Bread:Discount         -50 HUF
+            Expenses:Butter:Price           200 HUF
+            Expenses:Butter:Discount        -50 HUF
+        """,
+            new_entries,
+        )
+
 
 if __name__ == '__main__':
     unittest.main()
