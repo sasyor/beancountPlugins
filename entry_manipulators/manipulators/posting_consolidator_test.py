@@ -3,7 +3,7 @@ import unittest
 from beancount import loader
 from beancount.parser import cmptest
 
-from entry_manipulators.entry_manipulator_orchestrator import entry_manipulator
+from entry_manipulators.entry_manipulators import entry_manipulators
 
 
 class PostingConsolidatorTest(cmptest.TestCase):
@@ -25,7 +25,7 @@ class PostingConsolidatorTest(cmptest.TestCase):
                       '  "metadata-name-consolidate-account-postfix":"discount"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -62,7 +62,7 @@ class PostingConsolidatorTest(cmptest.TestCase):
                       '  "metadata-name-consolidate-account-postfix":"discount"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -105,7 +105,7 @@ class PostingConsolidatorTest(cmptest.TestCase):
                       '  "metadata-name-consolidate-account-postfix":"discount"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """

@@ -4,9 +4,9 @@ from typing import Dict
 
 from beancount.core import data
 
-from entry_manipulators.data.account_consolidation_data import AccountConsolidationData
-from entry_manipulators.data.entry_manipulation_result_data import EntryManipulationResultData
-from entry_manipulators.entry_manipulator import EntryManipulator
+from ..data.account_consolidation_data import AccountConsolidationData
+from ..data.entry_manipulation_result_data import EntryManipulationResultData
+from ..entry_manipulator_base import EntryManipulatorBase
 
 
 class SplitDataBase:
@@ -269,7 +269,7 @@ class DiscountSplitter:
         return new_entry, list(account_consolidators.values())
 
 
-class PostingSplitter(EntryManipulator):
+class PostingSplitter(EntryManipulatorBase):
 
     def __init__(self, config):
         super().__init__(config)

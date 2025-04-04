@@ -4,7 +4,7 @@ import unittest
 from beancount import loader, Amount
 from beancount.parser import cmptest
 
-from entry_manipulators.entry_manipulator_orchestrator import entry_manipulator
+from entry_manipulators.entry_manipulators import entry_manipulators
 
 
 class TestPostingSplitter(cmptest.TestCase):
@@ -22,7 +22,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-type":"split-mode"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -48,7 +48,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-type":"split-mode"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -78,7 +78,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-type":"split-mode"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for index, posting in enumerate(entry.postings):
@@ -110,7 +110,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-type":"split-mode"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -139,7 +139,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-type":"split-mode"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -170,7 +170,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-skip-split":"skip-split"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -201,7 +201,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -236,7 +236,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for index, posting in enumerate(entry.postings):
@@ -270,7 +270,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -302,7 +302,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -342,7 +342,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -383,7 +383,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for index, posting in enumerate(entry.postings):
@@ -426,7 +426,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  "metadata-name-split-ratio":"msrp"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -467,7 +467,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '    },'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -511,7 +511,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '    },'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -575,7 +575,7 @@ class TestPostingSplitter(cmptest.TestCase):
                       '  }'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """

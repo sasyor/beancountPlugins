@@ -2,10 +2,10 @@ from abc import abstractmethod
 
 from beancount.core import data
 
-from entry_manipulators.data.entry_manipulation_result_data import EntryManipulationResultData
+from .data.entry_manipulation_result_data import EntryManipulationResultData
 
 
-class EntryManipulator:
+class EntryManipulatorBase:
     def __init__(self, config):
         self.config = config
 

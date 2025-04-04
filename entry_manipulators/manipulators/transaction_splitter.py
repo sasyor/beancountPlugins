@@ -1,10 +1,10 @@
 from beancount.core import data
 
-from entry_manipulators.data.entry_manipulation_result_data import EntryManipulationResultData
-from entry_manipulators.entry_manipulator import EntryManipulator
+from ..data.entry_manipulation_result_data import EntryManipulationResultData
+from ..entry_manipulator_base import EntryManipulatorBase
 
 
-class TransactionSplitter(EntryManipulator):
+class TransactionSplitter(EntryManipulatorBase):
     def __init__(self, config):
         super().__init__(config)
 
@@ -58,7 +58,7 @@ class TransactionSplitter(EntryManipulator):
         if "account" in self.config and main_posting.account != self.config["account"]:
             return None
 
-        (narration, metadata_name_to_remove) = self.__get_narration(entry, main_posting)
+        (stayed_narration, moved_narration, metadata_name_to_remove) = self.__get_narration(entry, main_posting)
         if metadata_name_to_remove:
             metadata_names_to_remove.add(metadata_name_to_remove)
 
@@ -80,14 +80,14 @@ class TransactionSplitter(EntryManipulator):
         else:
             return None
 
-        new_transactions = [self.__recreate_existing_txn(entry, postings_for_original_txn)]
+        new_transactions = [self.__recreate_existing_txn(entry, postings_for_original_txn, stayed_narration)]
 
         date = self.__get_date(main_posting)
         new_transactions.append(self.__create_new_txn(
             entry,
             postings_for_new_txn,
             date,
-            narration,
+            moved_narration,
         ))
         return new_transactions
 
@@ -105,13 +105,14 @@ class TransactionSplitter(EntryManipulator):
                             main_posting.price, main_posting.flag, meta)
 
     def __get_narration(self, entry, relevant_posting):
-        metadata_name_narration = self.config.get("metadata-name-narration")
-        if metadata_name_narration is not None and metadata_name_narration in relevant_posting.meta:
-            return relevant_posting.meta[metadata_name_narration], metadata_name_narration
-        narration = self.config.get("narration")
-        if narration is not None:
-            return narration, None
-        return entry.narration, None
+        stayed_narration = self.config.get("stayed-narration")
+        moved_narration = self.config.get("moved-narration")
+        metadata_name_moved_narration = self.config.get("metadata-name-moved-narration")
+        if metadata_name_moved_narration is not None and metadata_name_moved_narration in relevant_posting.meta:
+            moved_narration = relevant_posting.meta[metadata_name_moved_narration]
+        if stayed_narration is None: stayed_narration = entry.narration
+        if moved_narration is None: moved_narration = entry.narration
+        return stayed_narration, moved_narration, metadata_name_moved_narration
 
     @staticmethod
     def __create_transfer_posting(main_posting, transfer_account, with_main_posting):
@@ -120,8 +121,8 @@ class TransactionSplitter(EntryManipulator):
         return data.Posting(transfer_account, units, None, None, None, None)
 
     @staticmethod
-    def __recreate_existing_txn(txn, postings):
-        return data.Transaction(txn.meta, txn.date, txn.flag, txn.payee, txn.narration, txn.tags, txn.links,
+    def __recreate_existing_txn(txn, postings, narration):
+        return data.Transaction(txn.meta, txn.date, txn.flag, txn.payee, narration, txn.tags, txn.links,
                                 postings)
 
     @staticmethod

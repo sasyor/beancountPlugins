@@ -1,14 +1,13 @@
 import ast
-from typing import List, Dict
+from typing import Dict, List
 
 from beancount.core import data
 
-from entry_manipulators.data.account_consolidation_data import AccountConsolidationData
-from entry_manipulators.data.entry_manipulation_result_data import EntryManipulationResultData
-from entry_manipulators.entry_manipulator import EntryManipulator
-from entry_manipulators.manipulators.posting_consolidator import PostingConsolidator
-from entry_manipulators.manipulators.posting_splitter import PostingSplitter
-from entry_manipulators.manipulators.transaction_splitter import TransactionSplitter
+from .data.account_consolidation_data import AccountConsolidationData
+from .entry_manipulator_base import EntryManipulatorBase
+from .manipulators.posting_consolidator import PostingConsolidator
+from .manipulators.posting_splitter import PostingSplitter
+from .manipulators.transaction_splitter import TransactionSplitter
 
 
 class EntryManipulatorOrchestrator:
@@ -28,7 +27,7 @@ class EntryManipulatorOrchestrator:
 
     @staticmethod
     def get_manipulators(config):
-        manipulators: List[EntryManipulator] = []
+        manipulators: List[EntryManipulatorBase] = []
         manipulator_factories = {
             "transaction-splitter": TransactionSplitter,
             "posting-consolidator": PostingConsolidator,
@@ -44,30 +43,34 @@ class EntryManipulatorOrchestrator:
 
     def manipulate_entries(self, entries, manipulators):
         manipulated_entries = []
-        results: List[EntryManipulationResultData] = []
+        other_data_collection: List[object] = []
+
         for entry in entries:
             if not isinstance(entry, data.Transaction):
                 manipulated_entries.append(entry)
                 continue
 
+            current_entries_to_process = [entry]
             for manipulator in manipulators:
-                results.append(manipulator.execute(entry))
+                next_entries_to_process = []
+                for current_entry_to_process in current_entries_to_process:
+                    result = manipulator.execute(current_entry_to_process)
+                    next_entries_to_process.extend(result.entries)
+                    if result.other_data:
+                        other_data_collection.extend(result.other_data)
+                current_entries_to_process = next_entries_to_process
 
-        for result in results:
-            manipulated_entries.extend(result.entries)
+            manipulated_entries.extend(current_entries_to_process)
 
-            if result.other_data is None:
+        for other_data in other_data_collection:
+            if not isinstance(other_data, AccountConsolidationData):
                 continue
 
-            for other_data in result.other_data:
-                if not isinstance(other_data, AccountConsolidationData):
-                    continue
-
-                account_consolidator = self.account_consolidators.get(other_data.original_account)
-                if account_consolidator is None:
-                    self.account_consolidators[other_data.original_account] = other_data
-                else:
-                    account_consolidator.add_additional_accounts(other_data.additional_accounts)
+            account_consolidator = self.account_consolidators.get(other_data.original_account)
+            if account_consolidator is None:
+                self.account_consolidators[other_data.original_account] = other_data
+            else:
+                account_consolidator.add_additional_accounts(other_data.additional_accounts)
 
         return manipulated_entries
 
@@ -104,7 +107,3 @@ class EntryManipulatorOrchestrator:
                                            entry.currencies, entry.booking)
             consolidated_entries.append(consolidated_entry)
         return consolidated_entries
-
-
-def entry_manipulator(entries, options_map, config_str=""):
-    return EntryManipulatorOrchestrator().execute(entries, options_map, config_str)

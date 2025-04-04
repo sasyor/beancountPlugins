@@ -3,7 +3,7 @@ import unittest
 from beancount import loader
 from beancount.parser import cmptest
 
-from entry_manipulators.entry_manipulator_orchestrator import entry_manipulator
+from entry_manipulators.entry_manipulators import entry_manipulators
 
 
 class TestTransactionSplitter(cmptest.TestCase):
@@ -27,7 +27,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             self.assertEqual(entry.meta.get("random-1"), "text-1", entry)
@@ -56,7 +56,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"stay"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -89,7 +89,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -121,7 +121,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for posting in entry.postings:
@@ -149,7 +149,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -186,7 +186,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -218,7 +218,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for posting in entry.postings:
@@ -226,23 +226,23 @@ class TestTransactionSplitter(cmptest.TestCase):
                                   posting)
 
     @loader.load_doc(expect_errors=True)
-    def test_metadata_date_and_literal_transfer_literal_narration(self, entries, _, options_map):
+    def test_metadata_date_and_literal_transfer_literal_stayed_narration(self, entries, _, options_map):
         """
-        2013-05-31 * "Paid by card"
+        2013-06-03 * "Paid by card"
             Assets:Bank:Checking      -100 USD
-                booking-date: 2013-06-03
+                transfer-date: 2013-05-31
             Assets:Cash                100 USD
         """
         config_str = ('{"manipulators": ['
                       '{'
                       '  "type":"transaction-splitter",'
-                      '  "narration":"Custom narration",'
-                      '  "metadata-name-date":"booking-date",'
+                      '  "stayed-narration":"Custom narration",'
+                      '  "metadata-name-date":"transfer-date",'
                       '  "transfer-account":"Assets:Bank:DebitCard",'
-                      '  "dated-posting-move-mode":"move"'
+                      '  "dated-posting-move-mode":"stay"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -258,7 +258,39 @@ class TestTransactionSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
-    def test_metadata_date_and_literal_transfer_metadata_narration(self, entries, _, options_map):
+    def test_metadata_date_and_literal_transfer_literal_moved_narration(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:Checking      -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      '  "type":"transaction-splitter",'
+                      '  "moved-narration":"Custom narration",'
+                      '  "metadata-name-date":"booking-date",'
+                      '  "transfer-account":"Assets:Bank:DebitCard",'
+                      '  "dated-posting-move-mode":"move"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card"
+            Assets:Bank:DebitCard     -100 USD
+            Assets:Cash                100 USD
+
+        2013-06-03 * "Custom narration"
+            Assets:Bank:Checking      -100 USD
+            Assets:Bank:DebitCard      100 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer_metadata_moved_narration(self, entries, _, options_map):
         """
         2013-05-31 * "Paid by card"
             Assets:Bank:Checking      -100 USD
@@ -269,13 +301,13 @@ class TestTransactionSplitter(cmptest.TestCase):
         config_str = ('{"manipulators": ['
                       '{'
                       '  "type":"transaction-splitter",'
-                      '  "metadata-name-narration":"narration",'
+                      '  "metadata-name-moved-narration":"narration",'
                       '  "metadata-name-date":"booking-date",'
                       '  "transfer-account":"Assets:Bank:DebitCard",'
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -302,13 +334,13 @@ class TestTransactionSplitter(cmptest.TestCase):
         config_str = ('{"manipulators": ['
                       '{'
                       '  "type":"transaction-splitter",'
-                      '  "metadata-name-narration":"narration",'
+                      '  "metadata-name-moved-narration":"narration",'
                       '  "metadata-name-date":"booking-date",'
                       '  "transfer-account":"Assets:Bank:DebitCard",'
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         for entry in new_entries:
             for posting in entry.postings:
@@ -331,7 +363,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -364,7 +396,7 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -400,11 +432,11 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '  "type":"transaction-splitter",'
                       '  "metadata-name-date":"exam-date",'
                       '  "transfer-account":"Assets:Receivables:Exams",'
-                      '  "metadata-name-narration":"narration",'
+                      '  "metadata-name-moved-narration":"narration",'
                       '  "dated-posting-move-mode":"move"'
                       '}'
                       ']}')
-        new_entries, _ = entry_manipulator(entries, options_map, config_str)
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
 
         self.assertEqualEntries(
             """
@@ -420,6 +452,107 @@ class TestTransactionSplitter(cmptest.TestCase):
         2013-06-03 * "Paid for exam"
             Assets:Receivables:Exams     -60 USD
             Expenses:Exams                60 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_multiple_rules_1(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card 1"
+            Assets:Bank:Checking1     -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+
+        2013-06-12 * "Paid by card 2"
+            Assets:Bank:Checking2     -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                200 USD
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      '  "type": "transaction-splitter",'
+                      '  "dated-posting-move-mode": "stay",'
+                      '  "metadata-name-date": "transaction-date",'
+                      '  "metadata-name-transfer-account": "transfer-account"'
+                      '},'
+                      '{'
+                      '  "type":"transaction-splitter",'
+                      '  "account":"Assets:Bank:Checking1",'
+                      '  "metadata-name-date":"booking-date",'
+                      '  "transfer-account":"Liabilities:Bank:DebitCard",'
+                      '  "dated-posting-move-mode":"move"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card 1"
+            Liabilities:Bank:DebitCard     -100 USD
+            Assets:Cash                     100 USD
+
+        2013-06-03 * "Paid by card 1"
+            Assets:Bank:Checking1          -100 USD
+            Liabilities:Bank:DebitCard      100 USD
+
+        2013-06-12 * "Paid by card 2"
+            Assets:Bank:Checking2          -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                     200 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_multiple_rules_2(self, entries, _, options_map):
+        """
+        2013-06-03 * "Paid by card 1"
+            Assets:Bank:Checking1     -100 USD
+                transaction-date: 2013-05-31
+            Assets:Cash                100 USD
+
+        2013-06-16 * "Paid by card 2"
+            Assets:Bank:Checking2     -200 USD
+                transaction-date: 2013-06-12
+                transfer-account: Assets:Bank:DebitCard
+            Assets:Cash                200 USD
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      '  "type": "transaction-splitter",'
+                      '  "dated-posting-move-mode": "stay",'
+                      '  "account": "Assets:Bank:Checking2",'
+                      '  "metadata-name-date": "transaction-date",'
+                      '  "metadata-name-transfer-account": "transfer-account"'
+                      '},'
+                      '{'
+                      '  "type": "transaction-splitter",'
+                      '  "dated-posting-move-mode": "stay",'
+                      '  "account": "Assets:Bank:Checking1",'
+                      '  "metadata-name-date": "transaction-date",'
+                      '  "transfer-account": "Liabilities:Bank:DebitCard"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card 1"
+            Liabilities:Bank:DebitCard     -100 USD
+            Assets:Cash                     100 USD
+
+        2013-06-03 * "Paid by card 1"
+            Assets:Bank:Checking1          -100 USD
+            Liabilities:Bank:DebitCard      100 USD
+
+        2013-06-12 * "Paid by card 2"
+            Assets:Bank:DebitCard          -200 USD
+            Assets:Cash                     200 USD
+
+        2013-06-16 * "Paid by card 2"
+            Assets:Bank:Checking2          -200 USD
+            Assets:Bank:DebitCard           200 USD
         """,
             new_entries,
         )
