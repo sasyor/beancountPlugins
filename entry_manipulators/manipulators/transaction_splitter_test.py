@@ -522,7 +522,6 @@ class TestTransactionSplitter(cmptest.TestCase):
                       '{'
                       '  "type": "transaction-splitter",'
                       '  "dated-posting-move-mode": "stay",'
-                      '  "account": "Assets:Bank:Checking2",'
                       '  "metadata-name-date": "transaction-date",'
                       '  "metadata-name-transfer-account": "transfer-account"'
                       '},'

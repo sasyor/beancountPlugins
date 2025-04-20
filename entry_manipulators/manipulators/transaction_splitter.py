@@ -13,9 +13,9 @@ class TransactionSplitter(EntryManipulatorBase):
 
         self.transfer_account_get = None
         if self.metadata_name_transfer_account is not None:
-            self.transfer_account_get = lambda p: p.meta[
+            self.transfer_account_get = lambda p: p.meta.get(
                 self.metadata_name_transfer_account
-            ]
+            )
         elif "transfer-account" in self.config:
             self.transfer_account_get = lambda _: self.config["transfer-account"]
 
@@ -66,6 +66,8 @@ class TransactionSplitter(EntryManipulatorBase):
         other_postings = list(filter(lambda p: p != main_posting, entry.postings))
 
         transfer_account = self.transfer_account_get(main_posting)
+        if transfer_account is None:
+            return None
 
         if dated_posting_move_mode == "stay":
             postings_for_original_txn = [modified_main_posting,
