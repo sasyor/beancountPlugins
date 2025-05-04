@@ -3,7 +3,7 @@ import unittest
 from beancount import loader
 from beancount.parser import cmptest
 
-from entry_manipulators.entry_manipulators import entry_manipulators
+from entry_manipulation.entry_manipulators import entry_manipulators
 
 
 class TestTransactionSplitter(cmptest.TestCase):

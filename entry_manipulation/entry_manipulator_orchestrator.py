@@ -5,7 +5,10 @@ from beancount.core import data
 
 from .data.account_consolidation_data import AccountConsolidationData
 from .entry_manipulator_base import EntryManipulatorBase
-from .manipulators.posting_consolidator import PostingConsolidator
+from .manipulators.posting_consolidators.filling.posting_consolidator_filler import PostingConsolidatorFiller
+from .manipulators.posting_consolidators.original_pricing.posting_consolidator_original_price import \
+    PostingConsolidatorOriginalPrice
+from .manipulators.posting_consolidators.spreading.posting_consolidator_spreader import PostingConsolidatorSpreader
 from .manipulators.posting_splitter import PostingSplitter
 from .manipulators.transaction_splitter import TransactionSplitter
 
@@ -30,7 +33,9 @@ class EntryManipulatorOrchestrator:
         manipulators: List[EntryManipulatorBase] = []
         manipulator_factories = {
             "transaction-splitter": TransactionSplitter,
-            "posting-consolidator": PostingConsolidator,
+            "posting-consolidator-original-price": PostingConsolidatorOriginalPrice,
+            "posting-spreader": PostingConsolidatorSpreader,
+            "posting-filler": PostingConsolidatorFiller,
             "posting-splitter": PostingSplitter,
         }
         for manipulator_config in config["manipulators"]:
