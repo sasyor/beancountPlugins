@@ -1,9 +1,10 @@
 import ast
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from beancount.core import data
 
 from .data.account_consolidation_data import AccountConsolidationData
+from .data.entry_manipulation_result_data import EntryManipulationResultData
 from .entry_manipulator_base import EntryManipulatorBase
 from .manipulators.posting_consolidators.filling.posting_consolidator_filler import PostingConsolidatorFiller
 from .manipulators.posting_consolidators.original_pricing.posting_consolidator_original_price import \
@@ -59,7 +60,11 @@ class EntryManipulatorOrchestrator:
             for manipulator in manipulators:
                 next_entries_to_process = []
                 for current_entry_to_process in current_entries_to_process:
-                    result = manipulator.execute(current_entry_to_process)
+                    result: Optional[EntryManipulationResultData]
+                    try:
+                        result = manipulator.execute(current_entry_to_process)
+                    except Exception as e:
+                        raise Exception(current_entry_to_process) from e
                     next_entries_to_process.extend(result.entries)
                     if result.other_data:
                         other_data_collection.extend(result.other_data)

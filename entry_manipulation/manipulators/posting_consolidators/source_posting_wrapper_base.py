@@ -2,7 +2,6 @@ from abc import abstractmethod
 from decimal import Decimal
 from typing import List
 
-from beancount import Amount
 from beancount.core import data
 
 from .ids import Ids
@@ -41,7 +40,7 @@ class SourcePostingWrapperBase:
         elif self._distribution_type.startswith("meta:"):
             for posting in postings:
                 meta = posting.get_meta(self._distribution_type.split("meta:")[-1])
-                if isinstance(meta, Amount):
+                if isinstance(meta, data.Amount):
                     number_base += meta.number
             number_base = self._max_number / number_base
 
@@ -53,7 +52,7 @@ class SourcePostingWrapperBase:
                 number = number_base
             elif self._distribution_type.startswith("meta:"):
                 meta = posting.get_meta(self._distribution_type.split("meta:")[-1])
-                if isinstance(meta, Amount):
+                if isinstance(meta, data.Amount):
                     number = number_base * meta.number
 
             number = self._rounder.round(number, self._posting.units.currency)

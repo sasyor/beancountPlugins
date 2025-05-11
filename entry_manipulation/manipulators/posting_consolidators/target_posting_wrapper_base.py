@@ -3,7 +3,7 @@ from typing import List
 
 from beancount.core import data
 
-from entry_manipulation.manipulators.posting_consolidators.ids import Ids
+from .ids import Ids
 from .simple_posting_wrapper_base import SimplePostingWrapperBase
 
 

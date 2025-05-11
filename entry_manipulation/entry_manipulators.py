@@ -1,6 +1,6 @@
 from .entry_manipulator_orchestrator import EntryManipulatorOrchestrator
 
-__plugins__ = ["entry_manipulation"]
+__plugins__ = ["entry_manipulators"]
 
 
 def entry_manipulators(entries, options_map, config_str=""):

@@ -26,8 +26,8 @@ class PostingWrapperFactoryBase(metaclass=ABCMeta):
         irrelevant_postings: List[data.Posting] = []
 
         for posting in postings:
-            source_id_text: Optional[str] = posting.meta.get(self._metadata_name_source_id)
-            target_id_text: Optional[str] = posting.meta.get(self._metadata_name_target_id)
+            source_id_text: Optional[str] = posting.meta.get(self._metadata_name_source_id) if posting.meta else None
+            target_id_text: Optional[str] = posting.meta.get(self._metadata_name_target_id) if posting.meta else None
             if source_id_text is not None:
                 distribution_type = posting.meta.get(self._metadata_name_distribution_type)
                 source_postings.append(self._create_source_posting_wrapper(posting, distribution_type, source_id_text))
