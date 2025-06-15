@@ -1,3 +1,5 @@
+import re
+
 from beancount.core import data
 
 from ..data.entry_manipulation_result_data import EntryManipulationResultData
@@ -55,7 +57,7 @@ class TransactionSplitter(EntryManipulatorBase):
 
         if not main_posting.meta or not self.metadata_name_date in main_posting.meta:
             return None
-        if "account" in self.config and main_posting.account != self.config["account"]:
+        if "account" in self.config and not re.search(self.config["account"], main_posting.account):
             return None
 
         (stayed_narration, moved_narration, metadata_name_to_remove) = self.__get_narration(entry, main_posting)

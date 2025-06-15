@@ -170,6 +170,61 @@ class TestTransactionSplitter(cmptest.TestCase):
         )
 
     @loader.load_doc(expect_errors=True)
+    def test_metadata_date_and_literal_transfer_account_regex_filter(self, entries, _, options_map):
+        """
+        2013-05-31 * "Paid by card 1"
+            Assets:Bank:Checking1:A   -100 USD
+                booking-date: 2013-06-03
+            Assets:Cash                100 USD
+
+        2013-06-02 * "Paid by card 2"
+            Assets:Bank:Checking1:B   -100 USD
+                booking-date: 2013-06-05
+            Assets:Cash                100 USD
+
+        2013-06-12 * "Paid by card 3"
+            Assets:Bank:Checking2     -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                200 USD
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      '  "type":"transaction-splitter",'
+                      '  "account":"Assets:Bank:Checking1:*",'
+                      '  "metadata-name-date":"booking-date",'
+                      '  "transfer-account":"Liabilities:Bank:DebitCard",'
+                      '  "dated-posting-move-mode":"move"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-31 * "Paid by card 1"
+            Liabilities:Bank:DebitCard     -100 USD
+            Assets:Cash                     100 USD
+
+        2013-06-03 * "Paid by card 1"
+            Assets:Bank:Checking1:A        -100 USD
+            Liabilities:Bank:DebitCard      100 USD
+
+        2013-06-02 * "Paid by card 2"
+            Liabilities:Bank:DebitCard     -100 USD
+            Assets:Cash                     100 USD
+
+        2013-06-05 * "Paid by card 2"
+            Assets:Bank:Checking1:B        -100 USD
+            Liabilities:Bank:DebitCard      100 USD
+
+        2013-06-12 * "Paid by card 3"
+            Assets:Bank:Checking2          -200 USD
+                booking-date: 2014-06-16
+            Assets:Cash                     200 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_metadata_date_and_metadata_transfer(self, entries, _, options_map):
         """
         2013-05-31 * "Paid by card"
