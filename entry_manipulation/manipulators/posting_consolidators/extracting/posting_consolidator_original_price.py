@@ -2,11 +2,11 @@ from typing import Set, Dict, List
 
 from beancount.core import data
 
-from .posting_consolidator_original_price_base import PostingConsolidatorOriginalPriceBase
+from .posting_consolidator_extracting_base import PostingConsolidatorExtractingBase
 from ....data.account_consolidation_data import AccountConsolidationData
 
 
-class PostingConsolidatorOriginalPrice(PostingConsolidatorOriginalPriceBase):
+class PostingConsolidatorOriginalPrice(PostingConsolidatorExtractingBase):
     def __init__(self, config):
         super().__init__(config)
         self.consolidate_discount_account_postfix = config.get('consolidate-discount-account-postfix')

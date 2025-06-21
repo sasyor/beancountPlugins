@@ -8,7 +8,7 @@ from ....data.entry_manipulation_result_data import EntryManipulationResultData
 from ....entry_manipulator_base import EntryManipulatorBase
 
 
-class PostingConsolidatorOriginalPriceBase(EntryManipulatorBase):
+class PostingConsolidatorExtractingBase(EntryManipulatorBase):
     def __init__(self, config):
         super().__init__(config)
 
