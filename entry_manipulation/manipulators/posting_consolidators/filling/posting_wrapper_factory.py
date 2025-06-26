@@ -1,32 +1,26 @@
+from typing import List
+
 from beancount.core import data
 
-from .simple_posting_wrapper import SimplePostingWrapper
 from .source_posting_wrapper import SourcePostingWrapper
 from .target_posting_wrapper import TargetPostingWrapper
-from ..posting_wrapper_factory_base import PostingWrapperFactoryBase
-from ..simple_posting_wrapper_base import SimplePostingWrapperBase
-from ..source_posting_wrapper_base import SourcePostingWrapperBase
-from ..target_posting_wrapper_base import TargetPostingWrapperBase
-from ....data.account_consolidation_data_manager import AccountConsolidationDataManager
+from ..posting_wrapping.matching.matcher_base import MatcherBase
+from ..posting_wrapping.matching.matcher_factory_base import MatcherFactoryBase
+from ..posting_wrapping.posting_wrapper_factory_base import PostingWrapperFactoryBase
+from ..posting_wrapping.source_posting_wrapper_base import SourcePostingWrapperBase
+from ..posting_wrapping.target_posting_wrapper_base import TargetPostingWrapperBase
+from ..posting_wrapping.values.value_getter import ValueGetter
 from ....utils.rounder import Rounder
 
 
 class PostingWrapperFactory(PostingWrapperFactoryBase):
-    def __init__(self, account_consolidation_manager: AccountConsolidationDataManager, rounder: Rounder,
-                 metadata_name_distribution_type: str, metadata_name_source_id: str, metadata_name_target_id: str):
-        super().__init__(rounder, metadata_name_distribution_type, metadata_name_source_id, metadata_name_target_id)
-        self._account_consolidation_manager = account_consolidation_manager
+    def __init__(self, rounder: Rounder, value_getter_distribution_type: ValueGetter,
+                 matcher_factory: MatcherFactoryBase):
+        super().__init__(rounder, value_getter_distribution_type, matcher_factory)
 
     def _create_source_posting_wrapper(self, posting: data.Posting, distribution_type: str,
-                                       ids_text: str) -> SourcePostingWrapperBase:
-        ids = self._create_ids(ids_text)
-        max_number = posting.units.number
-        return SourcePostingWrapper(self._rounder, posting, distribution_type, ids, max_number)
+                                       matcher: MatcherBase) -> SourcePostingWrapperBase:
+        return SourcePostingWrapper(self._rounder, posting, distribution_type, matcher, posting.units.number)
 
-    def _create_simple_posting_wrapper(self, posting) -> SimplePostingWrapperBase:
-        return SimplePostingWrapper(posting)
-
-    def _create_target_posting_wrapper(self, posting, ids_text: str) -> TargetPostingWrapperBase:
-        posting.meta.pop(self._metadata_name_target_id)
-        ids = self._create_ids(ids_text)
-        return TargetPostingWrapper(posting, ids)
+    def _create_target_posting_wrapper(self, posting, match_data: List[str]) -> TargetPostingWrapperBase:
+        return TargetPostingWrapper(posting, match_data)

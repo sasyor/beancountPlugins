@@ -5,8 +5,143 @@ from beancount.parser import cmptest
 
 from entry_manipulation.entry_manipulators import entry_manipulators
 
+manipulator_type = "posting-spreader"
+
 
 class PostingConsolidatorSpreaderTest(cmptest.TestCase):
+    @loader.load_doc(expect_errors=True)
+    def test_spread_posting_to_metadata_account(self, entries, _, options_map):
+        """
+        2010-08-31 open Expenses:Hygiene:BarSoap
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                       -8,154 HUF
+            Expenses:Hygiene:BarSoap                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4 HUF}
+            Expenses:Hygiene:BarSoap             -(680+1,360) HUF
+                discount-account: "Tesco:Clubcard"
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      f'  "type":"{manipulator_type}",'
+                      '  "roundings":{'
+                      '      "USD":2'
+                      '    },'
+                      '  "consolidate-price-account-postfix":"Price",'
+                      '  "spread-base":"unit",'
+                      '  "match-mode":"same-account",'
+                      '  "metadata-name-spread-account-postfix":"discount-account"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2010-08-31 open Expenses:Hygiene:BarSoap:Price
+        2010-08-31 open Expenses:Hygiene:BarSoap:Tesco:Clubcard
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                             -8,154 HUF
+            Expenses:Hygiene:BarSoap:Price                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4-(680+1,360)/((2+4)*4) HUF}
+            Expenses:Hygiene:BarSoap:Price              (680+1,360) HUF
+            Expenses:Hygiene:BarSoap:Tesco:Clubcard    -(680+1,360) HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_spread_posting_to_metadata_account_no_duplication(self, entries, _, options_map):
+        """
+        2010-08-31 open Expenses:Hygiene:BarSoap
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                       -8,154 HUF
+            Expenses:Hygiene:BarSoap                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4 HUF}
+            Expenses:Hygiene:BarSoap             -(680+1,360) HUF
+                discount-account: "Tesco:Clubcard"
+
+        2013-07-03 * "Purchase"
+            Assets:Bank:Checking                       -8,154 HUF
+            Expenses:Hygiene:BarSoap                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4 HUF}
+            Expenses:Hygiene:BarSoap             -(680+1,360) HUF
+                discount-account: "Tesco:Clubcard"
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      f'  "type":"{manipulator_type}",'
+                      '  "roundings":{'
+                      '      "USD":2'
+                      '    },'
+                      '  "consolidate-price-account-postfix":"Price",'
+                      '  "spread-base":"unit",'
+                      '  "match-mode":"same-account",'
+                      '  "metadata-name-spread-account-postfix":"discount-account"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2010-08-31 open Expenses:Hygiene:BarSoap:Price
+        2010-08-31 open Expenses:Hygiene:BarSoap:Tesco:Clubcard
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                             -8,154 HUF
+            Expenses:Hygiene:BarSoap:Price                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4-(680+1,360)/((2+4)*4) HUF}
+            Expenses:Hygiene:BarSoap:Price              (680+1,360) HUF
+            Expenses:Hygiene:BarSoap:Tesco:Clubcard    -(680+1,360) HUF
+
+        2013-07-03 * "Purchase"
+            Assets:Bank:Checking                             -8,154 HUF
+            Expenses:Hygiene:BarSoap:Price                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4-(680+1,360)/((2+4)*4) HUF}
+            Expenses:Hygiene:BarSoap:Price              (680+1,360) HUF
+            Expenses:Hygiene:BarSoap:Tesco:Clubcard    -(680+1,360) HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_spread_posting_to_metadata_account_independency(self, entries, _, options_map):
+        """
+        2010-08-31 open Expenses:Hygiene:BarSoap
+        2010-08-31 open Expenses:Hygiene:Cream
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                       -8,154 HUF
+            Expenses:Hygiene:Cream                        100 HUF
+            Expenses:Hygiene:BarSoap                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4 HUF}
+            Expenses:Hygiene:BarSoap             -(680+1,360) HUF
+                discount-account: "Tesco:Clubcard"
+        """
+        config_str = ('{"manipulators": ['
+                      '{'
+                      f'  "type":"{manipulator_type}",'
+                      '  "roundings":{'
+                      '      "USD":2'
+                      '    },'
+                      '  "consolidate-price-account-postfix":"Price",'
+                      '  "spread-base":"unit",'
+                      '  "match-mode":"same-account",'
+                      '  "metadata-name-spread-account-postfix":"discount-account"'
+                      '}'
+                      ']}')
+        new_entries, _ = entry_manipulators(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2010-08-31 open Expenses:Hygiene:BarSoap:Price
+        2010-08-31 open Expenses:Hygiene:BarSoap:Tesco:Clubcard
+        2010-08-31 open Expenses:Hygiene:Cream
+
+        2013-06-03 * "Purchase"
+            Assets:Bank:Checking                             -8,154 HUF
+            Expenses:Hygiene:Cream                              100 HUF
+            Expenses:Hygiene:BarSoap:Price                  (2+4)*4 PCS_DOVE_BAR_SOAP {1,699/4-(680+1,360)/((2+4)*4) HUF}
+            Expenses:Hygiene:BarSoap:Price              (680+1,360) HUF
+            Expenses:Hygiene:BarSoap:Tesco:Clubcard    -(680+1,360) HUF
+        """,
+            new_entries,
+        )
+
     @loader.load_doc(expect_errors=True)
     def test_spread_posting_to_all_postings_negative(self, entries, _, options_map):
         """
@@ -25,7 +160,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "USD":2'
                       '    },'
@@ -75,7 +210,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "USD":2'
                       '    },'
@@ -127,7 +262,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "USD":2'
                       '    },'
@@ -176,7 +311,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "HUF":2'
                       '    },'
@@ -226,7 +361,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "HUF":2'
                       '    },'
@@ -296,7 +431,7 @@ class PostingConsolidatorSpreaderTest(cmptest.TestCase):
         """
         config_str = ('{"manipulators": ['
                       '{'
-                      '  "type":"posting-spreader",'
+                      f'  "type":"{manipulator_type}",'
                       '  "roundings":{'
                       '      "HUF":0'
                       '    },'

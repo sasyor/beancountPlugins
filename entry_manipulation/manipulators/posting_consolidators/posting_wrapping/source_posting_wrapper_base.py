@@ -1,34 +1,32 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from decimal import Decimal
 from typing import List
 
 from beancount.core import data
 
-from .ids import Ids
-from .simple_posting_wrapper_base import SimplePostingWrapperBase
+from .matching.matcher_base import MatcherBase
 from .target_posting_wrapper_base import TargetPostingWrapperBase
-from ...utils.rounder import Rounder
+from ....utils.rounder import Rounder
 
 
-class SourcePostingWrapperBase:
-    def __init__(self, rounder: Rounder, posting: data.Posting, distribution_type: str, ids: Ids,
+# todo outsource distribution_type as distributor class
+class SourcePostingWrapperBase(ABC):
+    def __init__(self, rounder: Rounder, posting: data.Posting, distribution_type: str, matcher: MatcherBase,
                  max_number: Decimal) -> None:
+        self._matcher = matcher
         self._rounder = rounder
         self._posting = posting
         self._distribution_type = distribution_type
-        self._ids = ids
         self._max_number = max_number
 
-    def process_postings(self, target_postings: List[TargetPostingWrapperBase],
-                         simple_postings: List[SimplePostingWrapperBase]) -> None:
-        postings: List[SimplePostingWrapperBase] = []
+    def process_postings(self, target_postings: List[TargetPostingWrapperBase]) -> None:
+        postings: List[TargetPostingWrapperBase] = []
         for posting in target_postings:
-            if posting.get_ids().is_ids_intersect(self._ids):
+            if self._matcher.is_matches(posting.get_match_data()):
                 postings.append(posting)
 
-        if self._ids.is_intersect_with_simple_postings():
-            for posting in simple_postings:
-                postings.append(posting)
+        if len(postings) == 0:
+            return
 
         number_base = 0
         if self._distribution_type == "unit":
@@ -59,5 +57,5 @@ class SourcePostingWrapperBase:
             self.process_posting(posting, number)
 
     @abstractmethod
-    def process_posting(self, posting: SimplePostingWrapperBase, number: Decimal) -> None:
+    def process_posting(self, posting: TargetPostingWrapperBase, number: Decimal) -> None:
         pass

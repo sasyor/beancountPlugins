@@ -1,27 +1,34 @@
+from abc import ABC
 from decimal import Decimal
-from typing import List
+from typing import Optional, List
 
 from beancount.core import data
 
-from .can_add_posting import CanAddPosting
-from .simple_posting_wrapper import SimplePostingWrapper
-from ..ids import Ids
-from ..target_posting_wrapper_base import TargetPostingWrapperBase
+from ....data.account_consolidation_data import AccountConsolidationData
 from ....data.account_consolidation_data_manager import AccountConsolidationDataManager
+from ..posting_wrapping.target_posting_wrapper_base import TargetPostingWrapperBase
 
 
-class TargetPostingWrapper(TargetPostingWrapperBase, CanAddPosting):
-    def __init__(self, account_consolidation_manager: AccountConsolidationDataManager, account_postfix: str,
-                 posting: data.Posting, ids: Ids):
-        super().__init__(posting, ids)
-        self._ids = ids
-        self._simple_posting_wrapper = SimplePostingWrapper(account_consolidation_manager, account_postfix, posting)
+class TargetPostingWrapper(TargetPostingWrapperBase, ABC):
+    def __init__(self, account_consolidation_manager: AccountConsolidationDataManager, posting: data.Posting,
+                 match_data: Optional[List[str]]):
+        super().__init__(posting, match_data)
 
-    def get_ids(self) -> Ids:
-        return self._ids
+        self._account_consolidation_manager = account_consolidation_manager
+        self._account_consolidation: Optional[AccountConsolidationData] = None
 
-    def get_postings(self) -> List[data.Posting]:
-        return self._simple_posting_wrapper.get_postings()
+    def add_posting(self, source_account_postfix: str, target_account_postfix: str, number: Decimal) -> None:
+        number_in_dict = self._numbers.get(source_account_postfix)
+        if number_in_dict is None:
+            self._numbers[source_account_postfix] = number
+            self._account_consolidation = self._account_consolidation_manager.add_new_consolidator(
+                self.posting.account,
+                self.posting.account + ":" + target_account_postfix)
+        else:
+            self._numbers[source_account_postfix] += number
 
-    def add_posting(self, account_post_fix: str, number: Decimal) -> None:
-        return self._simple_posting_wrapper.add_posting(account_post_fix, number)
+    def get_number(self) -> Decimal:
+        return self.posting.units.number
+
+    def get_meta(self, meta_name: str) -> Optional[str]:
+        return self.posting.meta.get(meta_name)
