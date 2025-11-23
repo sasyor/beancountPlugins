@@ -49,6 +49,9 @@ class UtilityBill:
             for transaction in UtilitySpecificBill(utility).replace(transactions_to_process):
                 entries_result.append(transaction)
 
+        for transaction in transactions_to_check:
+            entries_result.append(transaction)
+
         return entries_result
 
 

@@ -7,6 +7,39 @@ from utility_bill.utility_bill import utility_bill
 class TestUtilityBill(cmptest.TestCase):
 
     @loader.load_doc(expect_errors=True)
+    def test_none_1(self, entries, _, options_map):
+        """
+        2022-02-26 * "V-V" "Részszámla 1"
+            period-start: 2022-01-04
+            period-end:   2022-02-22
+            usage-kwh:    213
+            estimated:    TRUE
+            Assets:Bank                      -7,865 HUF
+            Expenses:Utilities:Electricity    7,865 HUF
+        """
+        config_str = ('{"utilities": ['
+                      '{'
+                      '  "type":"electricity",'
+                      '  "shared-account":"Expenses:Utilities:Electricity",'
+                      '  "transfer-account":"Assets:Utilities:Electricity"'
+                      '}'
+                      ']}')
+        new_entries, _ = utility_bill(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2022-02-26 * "V-V" "Részszámla 1"
+            period-start: 2022-01-04
+            period-end:   2022-02-22
+            usage-kwh:    213
+            estimated:    TRUE
+            Assets:Bank                      -7,865 HUF
+            Expenses:Utilities:Electricity    7,865 HUF
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
     def test_single_1(self, entries, _, options_map):
         """
         2022-02-26 * "V-V" "Részszámla 1"
