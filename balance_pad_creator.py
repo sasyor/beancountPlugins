@@ -96,10 +96,16 @@ class BalancePadCreator:
 
             if txn_amount != balance.amount.number:
                 date = balance.date + datetime.timedelta(days=-1)
-                pads.append(data.Pad(data.new_metadata(balance.meta["filename"], balance.meta["lineno"]), date, account,
-                                     config["pad-account"]))
+                postings = [
+                    data.Posting(account, data.Amount(-balance.amount.number, balance.amount.currency), None, None,
+                                 None, dict()),
+                    data.Posting(config["pad-account"], balance.amount, None, None, None, dict())
+                ]
+                pads.append(
+                    data.Transaction(data.new_metadata(balance.meta["filename"], balance.meta["lineno"]), date, "*",
+                                     "", None, frozenset(), frozenset(), postings))
 
-            previous_balance = balance
+                previous_balance = balance
         return pads
 
 

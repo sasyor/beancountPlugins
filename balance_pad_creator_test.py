@@ -158,7 +158,9 @@ class TestBalancePadCreator(cmptest.TestCase):
             Assets:Bank:Checking      -100 USD
             Assets:Telephone           100 USD
 
-        2013-05-31 pad Assets:Telephone Expenses:Telephone:CallsAndMessages
+        2013-05-31 * ""
+            Assets:Telephone                        -80 USD
+            Expenses:Telephone:CallsAndMessages      80 USD
 
         2013-06-01 balance Assets:Telephone  80 USD
            balance-time: "14:47"
@@ -212,7 +214,9 @@ class TestBalancePadCreator(cmptest.TestCase):
         2013-06-28 balance Assets:Telephone  180 USD
            balance-time: "14:47"
 
-        2013-05-31 pad Assets:Telephone Expenses:Telephone:CallsAndMessages
+        2013-05-31 * ""
+            Assets:Telephone                        -80 USD
+            Expenses:Telephone:CallsAndMessages      80 USD
         """,
             new_entries,
         )
