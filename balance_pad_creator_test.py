@@ -158,9 +158,9 @@ class TestBalancePadCreator(cmptest.TestCase):
             Assets:Bank:Checking      -100 USD
             Assets:Telephone           100 USD
 
-        2013-05-31 * ""
-            Assets:Telephone                        -80 USD
-            Expenses:Telephone:CallsAndMessages      80 USD
+        2013-05-31 * "Pad"
+            Assets:Telephone                        -20 USD
+            Expenses:Telephone:CallsAndMessages      20 USD
 
         2013-06-01 balance Assets:Telephone  80 USD
            balance-time: "14:47"
@@ -210,13 +210,58 @@ class TestBalancePadCreator(cmptest.TestCase):
 
         2013-06-01 balance Assets:Telephone  80 USD
            balance-time: "14:47"
-           
+
         2013-06-28 balance Assets:Telephone  180 USD
            balance-time: "14:47"
 
-        2013-05-31 * ""
-            Assets:Telephone                        -80 USD
-            Expenses:Telephone:CallsAndMessages      80 USD
+        2013-05-31 * "Pad"
+            Assets:Telephone                        -20 USD
+            Expenses:Telephone:CallsAndMessages      20 USD
+        """,
+            new_entries,
+        )
+
+    @loader.load_doc(expect_errors=True)
+    def test_pad_creation_with_multi_txns(self, entries, _, options_map):
+        """
+        2013-05-15 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+        """
+        date = datetime.date(2013, 6, 1)
+        account = 'Assets:Telephone'
+        entries.append(data.Balance(
+            data.new_metadata(".", 1001, {"balance-time": "14:47"}), date, account,
+            A('80 USD"'), None, None
+        ))
+        config_str = ('{'
+                      '"account":"Assets:Telephone",'
+                      '"pad-account":"Expenses:Telephone:CallsAndMessages",'
+                      '"metadata-name-balance-unit":"balance",'
+                      '"metadata-name-balance-time":"balance-time"'
+                      '}')
+        new_entries, _ = balance_pad_creator(entries, options_map, config_str)
+
+        self.assertEqualEntries(
+            """
+        2013-05-15 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-05-31 * "Entry"
+            Assets:Bank:Checking      -100 USD
+            Assets:Telephone           100 USD
+
+        2013-06-01 balance Assets:Telephone  80 USD
+           balance-time: "14:47"
+
+        2013-05-31 * "Pad"
+            Assets:Telephone                        -120 USD
+            Expenses:Telephone:CallsAndMessages      120 USD
         """,
             new_entries,
         )

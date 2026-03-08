@@ -3,6 +3,8 @@ import datetime
 
 __plugins__ = ["balance_pad_creator"]
 
+from decimal import Decimal
+
 from beancount.core import data
 from beancount.core.data import Balance, Transaction
 from beancount.ops.pad import pad
@@ -96,14 +98,16 @@ class BalancePadCreator:
 
             if txn_amount != balance.amount.number:
                 date = balance.date + datetime.timedelta(days=-1)
+                number = txn_amount - balance.amount.number
                 postings = [
-                    data.Posting(account, data.Amount(-balance.amount.number, balance.amount.currency), None, None,
+                    data.Posting(account, data.Amount(Decimal(-number), balance.amount.currency), None, None,
                                  None, dict()),
-                    data.Posting(config["pad-account"], balance.amount, None, None, None, dict())
+                    data.Posting(config["pad-account"], data.Amount(Decimal(number), balance.amount.currency), None,
+                                 None, None, dict())
                 ]
                 pads.append(
                     data.Transaction(data.new_metadata(balance.meta["filename"], balance.meta["lineno"]), date, "*",
-                                     "", None, frozenset(), frozenset(), postings))
+                                     None, "Pad", frozenset(), frozenset(), postings))
 
                 previous_balance = balance
         return pads
