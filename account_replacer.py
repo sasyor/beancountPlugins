@@ -32,7 +32,7 @@ class AccountReplacer:
     @staticmethod
     def __replace_entry(entry, replace_rule):
         replace_from = replace_rule["replace-from"]
-        replace_to = replace_rule["replace-to"].replace("$", "\\")
+        replace_to = replace_rule["replace-to"].process("$", "\\")
         if isinstance(entry, data.Transaction):
             new_postings = []
             for posting in entry.postings:
